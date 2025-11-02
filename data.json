@@ -1,0 +1,192 @@
+{
+  "metrics": [
+    {
+      "title": "Active Orders",
+      "value": "248",
+      "change": 15,
+      "changeType": "increase",
+      "description": "Total active orders being processed",
+      "graphicType": "bar"
+    },
+    {
+      "title": "Parcels Sent",
+      "value": "1,856",
+      "change": 12,
+      "changeType": "increase",
+      "description": "Parcels dispatched this month",
+      "graphicType": "line"
+    },
+    {
+      "title": "Parcels Collected",
+      "value": "892",
+      "change": 8,
+      "changeType": "increase",
+      "description": "Parcels picked up by customers",
+      "graphicType": "donut"
+    },
+    {
+      "title": "Pending Collections",
+      "value": "34",
+      "change": -5,
+      "changeType": "decrease",
+      "description": "Parcels awaiting customer pickup",
+      "graphicType": "equalizer"
+    }
+  ],
+  "agentInfo": {
+    "name": "Calvince Tom",
+    "office": "PICKUPWAKA Hub",
+    "region": "Nairobi Central",
+    "email": "calvince@pickupwaka.com"
+  },
+  "additionalMetrics": {
+    "totalRevenue": "$24,064",
+    "averageDeliveryTime": "2.5 days",
+    "customerSatisfaction": "96%",
+    "returnRate": "1.2%"
+  },
+  "wallet": {
+    "currency": "KES",
+    "balance": 25089,
+    "periodEarned": 6430,
+    "debts": 0,
+    "transactions": [
+      {
+        "id": "TXN-9008",
+        "date": "2024-05-21T23:04:00Z",
+        "title": "Commission - Order ORD-2024-1058",
+        "subtitle": "Hobby category",
+        "amount": 1000,
+        "type": "commission"
+      },
+      {
+        "id": "TXN-9007",
+        "date": "2024-03-02T10:46:00Z",
+        "title": "Monthly Payout",
+        "subtitle": "Bank transfer",
+        "amount": 24300,
+        "type": "payout"
+      },
+      {
+        "id": "TXN-9006",
+        "date": "2024-03-01T00:00:00Z",
+        "title": "Debt Repayment",
+        "subtitle": "Scanner device installment",
+        "amount": -1,
+        "type": "repayment"
+      },
+      {
+        "id": "TXN-9005",
+        "date": "2024-02-01T00:00:00Z",
+        "title": "Debt Repayment",
+        "subtitle": "Float advance settlement",
+        "amount": -2,
+        "type": "repayment"
+      }
+    ]
+  },
+  "recentOrders": [
+    {
+      "id": "ORD-2024-1058",
+      "customer": "John Kamau",
+      "destination": "Westlands, Nairobi",
+      "fromLocation": "PICKUPWAKA Hub, Nairobi",
+      "toLocation": "Westlands, Nairobi",
+      "status": "In Transit",
+      "amount": "KES 1,250",
+      "date": "2024-10-28"
+    },
+    {
+      "id": "ORD-2024-1057",
+      "customer": "Mary Wanjiku",
+      "destination": "Kilimani, Nairobi",
+      "fromLocation": "PICKUPWAKA Hub, Nairobi",
+      "toLocation": "Kilimani, Nairobi",
+      "status": "Delivered",
+      "amount": "KES 850",
+      "date": "2024-10-28"
+    },
+    {
+      "id": "ORD-2024-1056",
+      "customer": "Peter Ochieng",
+      "destination": "CBD, Nairobi",
+      "fromLocation": "PICKUPWAKA Hub, Nairobi",
+      "toLocation": "CBD, Nairobi",
+      "status": "Pending Pickup",
+      "amount": "KES 2,100",
+      "date": "2024-10-27"
+    },
+    {
+      "id": "ORD-2024-1055",
+      "customer": "Jane Akinyi",
+      "destination": "Karen, Nairobi",
+      "fromLocation": "PICKUPWAKA Hub, Nairobi",
+      "toLocation": "Karen, Nairobi",
+      "status": "In Transit",
+      "amount": "KES 1,500",
+      "date": "2024-10-27"
+    },
+    {
+      "id": "ORD-2024-1054",
+      "customer": "David Mwangi",
+      "destination": "Parklands, Nairobi",
+      "fromLocation": "PICKUPWAKA Hub, Nairobi",
+      "toLocation": "Parklands, Nairobi",
+      "status": "Delivered",
+      "amount": "KES 950",
+      "date": "2024-10-26"
+    },
+    {
+      "id": "ORD-2024-1053",
+      "customer": "Grace Njeri",
+      "destination": "Lavington, Nairobi",
+      "fromLocation": "PICKUPWAKA Hub, Nairobi",
+      "toLocation": "Lavington, Nairobi",
+      "status": "Cancelled",
+      "amount": "KES 1,800",
+      "date": "2024-10-26"
+    },
+    {
+      "id": "ORD-2024-1052",
+      "customer": "Samuel Otieno",
+      "destination": "Upperhill, Nairobi",
+      "fromLocation": "PICKUPWAKA Hub, Nairobi",
+      "toLocation": "Upperhill, Nairobi",
+      "status": "In Transit",
+      "amount": "KES 1,350",
+      "date": "2024-10-26"
+    },
+    {
+      "id": "ORD-2024-1051",
+      "customer": "Lucy Mukami",
+      "destination": "South C, Nairobi",
+      "fromLocation": "PICKUPWAKA Hub, Nairobi",
+      "toLocation": "South C, Nairobi",
+      "status": "Delivered",
+      "amount": "KES 700",
+      "date": "2024-10-25"
+    }
+  ],
+  "tracking": {
+    "default": {
+      "code": "SK26273729",
+      "center": [-1.2921, 36.8219],
+      "origin": [-1.28333, 36.81667],
+      "destination": [-1.30000, 36.80000],
+      "route": [
+        [-1.28333, 36.81667],
+        [-1.28550, 36.81200],
+        [-1.28900, 36.80900],
+        [-1.29400, 36.80650],
+        [-1.29700, 36.80400],
+        [-1.30000, 36.80000]
+      ],
+      "driver": { "name": "Marvin McKinney", "rating": 4.8 },
+      "stops": [
+        { "address": "9081 Lakewood Gardens Junction", "time": "December 22, 2024 | 09:44 AM" },
+        { "address": "922 Messerschmidt Circle  DC", "time": "December 22, 2024 | 09:41 AM" }
+      ]
+    }
+  }
+}
+
