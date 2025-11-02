@@ -3,6 +3,7 @@ import localFont from "next/font/local";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { SessionProvider } from "@/components/providers/session-provider";
+import { PWARegister } from "@/components/pwa-register";
 
 const satoshi = localFont({
   src: [
@@ -97,11 +98,14 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        <link rel="manifest" href="/manifest.json" />
         <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+        <meta name="theme-color" content="#7CB342" />
       </head>
       <body
         className={`${satoshi.variable} font-sans antialiased`}
       >
+        <PWARegister />
         <SessionProvider>
           {children}
         </SessionProvider>
