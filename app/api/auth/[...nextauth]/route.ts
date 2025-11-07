@@ -1,6 +1,6 @@
 import NextAuth, { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
-import { getApiUrl, API_URLS } from "@/lib/constants"
+import { getInternalApiUrl, INTERNAL_API_URLS } from "@/lib/constants"
 import { LoginResponse } from "@/types/auth"
 
 export const authOptions: NextAuthOptions = {
@@ -23,7 +23,7 @@ export const authOptions: NextAuthOptions = {
               passwordLength: credentials.password.length,
             })
           }
-          const response = await fetch(getApiUrl(API_URLS.LOGIN), {
+          const response = await fetch(getInternalApiUrl(INTERNAL_API_URLS.AUTH_LOGIN), {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -81,8 +81,8 @@ export const authOptions: NextAuthOptions = {
             return null
           }
 
-          // Check if user is an agent
-          if (data.user.user_type !== "agent") {
+          // Check if user is an customer
+          if (data.user.user_type !== "customer") {
             if (process.env.NODE_ENV !== "production") {
               console.log("[nextauth.authorize] blocked due to user_type", data.user.user_type)
             }

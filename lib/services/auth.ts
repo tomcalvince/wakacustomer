@@ -1,4 +1,4 @@
-import { getApiUrl, API_URLS } from "@/lib/constants"
+import { INTERNAL_API_URLS } from "@/lib/constants"
 import { LoginResponse, AuthTokens, RegisterRequest, RegisterResponse } from "@/types/auth"
 
 /**
@@ -12,10 +12,10 @@ export async function login(email: string, password: string): Promise<LoginRespo
   try {
     if (process.env.NODE_ENV !== "production") {
       // Log outgoing request (without password in plain text)
-      console.log("[auth.login] POST", getApiUrl(API_URLS.LOGIN))
+      console.log("[auth.login] POST", INTERNAL_API_URLS.AUTH_LOGIN)
       console.log("[auth.login] payload", { email, passwordLength: password?.length ?? 0 })
     }
-    const response = await fetch(getApiUrl(API_URLS.LOGIN), {
+    const response = await fetch(INTERNAL_API_URLS.AUTH_LOGIN, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -85,9 +85,9 @@ export async function login(email: string, password: string): Promise<LoginRespo
       throw new Error("Account is inactive. Please contact support.")
     }
 
-    // Check if user is an agent
-    if (data.user.user_type !== "agent") {
-      throw new Error("Only agents are allowed access.")
+    // Check if user is a customer
+    if (data.user.user_type !== "customer") {
+      throw new Error("Only customers are allowed access.")
     }
 
     return data
@@ -111,10 +111,10 @@ export async function login(email: string, password: string): Promise<LoginRespo
 export async function refreshToken(refreshToken: string): Promise<AuthTokens> {
   try {
     if (process.env.NODE_ENV !== "production") {
-      console.log("[auth.refreshToken] POST", getApiUrl(API_URLS.REFRESH_TOKEN))
+      console.log("[auth.refreshToken] POST", INTERNAL_API_URLS.AUTH_REFRESH)
     }
 
-    const response = await fetch(getApiUrl(API_URLS.REFRESH_TOKEN), {
+    const response = await fetch(INTERNAL_API_URLS.AUTH_REFRESH, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -199,7 +199,7 @@ export async function refreshToken(refreshToken: string): Promise<AuthTokens> {
 export async function register(data: RegisterRequest): Promise<RegisterResponse> {
   try {
     if (process.env.NODE_ENV !== "production") {
-      console.log("[auth.register] POST", getApiUrl(API_URLS.REGISTER))
+      console.log("[auth.register] POST", INTERNAL_API_URLS.AUTH_REGISTER)
       console.log("[auth.register] payload", {
         email: data.email,
         first_name: data.first_name,
@@ -210,7 +210,7 @@ export async function register(data: RegisterRequest): Promise<RegisterResponse>
       })
     }
 
-    const response = await fetch(getApiUrl(API_URLS.REGISTER), {
+    const response = await fetch(INTERNAL_API_URLS.AUTH_REGISTER, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

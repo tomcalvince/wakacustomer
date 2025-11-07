@@ -7,7 +7,6 @@ import Image from "next/image"
 import { EnvelopeIcon, LockClosedIcon, EyeIcon, EyeSlashIcon, ChevronDownIcon } from "@heroicons/react/24/outline"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { register } from "@/lib/services/auth"
 import { formatPhoneNumber } from "@/lib/utils/phone"
 import Link from "next/link"
@@ -16,7 +15,6 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from "@/components/ui/select"
 
 type CountryCode = "+256" | "+254"
@@ -27,8 +25,6 @@ const COUNTRIES: Array<{ code: CountryCode; flag: string; name: string }> = [
 ]
 
 export function RegisterForm({
-  className,
-  ...props
 }: React.ComponentProps<"div">) {
   const router = useRouter()
   const [firstName, setFirstName] = React.useState("")
@@ -100,7 +96,7 @@ export function RegisterForm({
         first_name: firstName.trim(),
         last_name: lastName.trim(),
         phone_number: formattedPhone,
-        user_type: "agent",
+        user_type: "customer",
       })
 
       // Success - redirect to login with success message
@@ -135,7 +131,7 @@ export function RegisterForm({
         {/* Heading */}
         <div className="text-center">
           <h1 className="text-2xl font-bold text-black">
-            Become a pickupwaka agent today
+            Become a pickupwaka customer today
           </h1>
         </div>
 

@@ -105,21 +105,72 @@ export function LeafletMap({ className, height = 260, center, zoom = 13, route, 
     const L = (window as any).L
     if (!L) return
 
-    const map = instanceRef.current
+    try {
+      const map = instanceRef.current
 
-    // Remove existing polyline if any
-    if (polylineRef.current) {
-      map.removeLayer(polylineRef.current)
-      polylineRef.current = null
+      // Validate and filter route coordinates
+      const validRoute = route.filter((coord) => {
+        if (!Array.isArray(coord) || coord.length !== 2) return false
+        const [lat, lng] = coord
+        return (
+          typeof lat === "number" &&
+          typeof lng === "number" &&
+          !isNaN(lat) &&
+          !isNaN(lng) &&
+          isFinite(lat) &&
+          isFinite(lng) &&
+          lat >= -90 &&
+          lat <= 90 &&
+          lng >= -180 &&
+          lng <= 180
+        )
+      })
+
+      if (validRoute.length < 2) {
+        console.warn("[LeafletMap] Invalid route coordinates, skipping polyline")
+        return
+      }
+
+      // Remove existing polyline if any
+      if (polylineRef.current) {
+        try {
+          map.removeLayer(polylineRef.current)
+        } catch (e) {
+          // Ignore errors when removing layer
+        }
+        polylineRef.current = null
+      }
+
+      // Add new polyline
+      const poly = L.polyline(validRoute, { color: "#3b82f6", weight: 4, opacity: 0.9 })
+      poly.addTo(map)
+      polylineRef.current = poly
+
+      // Fit bounds to show route (with error handling)
+      try {
+        const bounds = poly.getBounds()
+        if (bounds && bounds.isValid && bounds.isValid()) {
+          map.fitBounds(bounds, { padding: [20, 20] })
+        }
+      } catch (boundsError) {
+        console.warn("[LeafletMap] Failed to fit bounds:", boundsError)
+        // Fallback: just center on first coordinate
+        if (validRoute.length > 0) {
+          map.setView(validRoute[0], map.getZoom() || 13)
+        }
+      }
+    } catch (error) {
+      console.error("[LeafletMap] Error adding polyline:", error)
+      // Clean up on error
+      if (polylineRef.current) {
+        try {
+          instanceRef.current?.removeLayer(polylineRef.current)
+        } catch (e) {
+          // Ignore cleanup errors
+        }
+        polylineRef.current = null
+      }
     }
-
-    // Add new polyline
-    const poly = L.polyline(route, { color: "#3b82f6", weight: 4, opacity: 0.9 })
-    poly.addTo(map)
-    polylineRef.current = poly
-
-    // Fit bounds to show route
-    map.fitBounds(poly.getBounds(), { padding: [20, 20] })
   }, [route])
 
   // Cleanup

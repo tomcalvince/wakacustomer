@@ -15,8 +15,8 @@ import {
 } from "@/components/ui/empty"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
-import { fetchOrders } from "@/lib/services/orders"
-import { Order, OrderDirection, OrderStatus } from "@/types/orders"
+import { useOrders } from "@/lib/hooks/use-orders"
+import { OrderDirection, OrderStatus } from "@/types/orders"
 import {
   getStatusLabel,
   getStatusBadgeClasses,
@@ -71,51 +71,21 @@ export function MobileOrdersList({
   showHeader?: boolean
   directionFilter?: OrderDirection
 }) {
-  const { data: session, update: updateSession } = useSession()
   const router = useRouter()
-  const [orders, setOrders] = React.useState<Order[]>([])
-  const [isLoading, setIsLoading] = React.useState(true)
   const [statusFilter, setStatusFilter] = React.useState<OrderStatus>("all")
+  const { orders, isLoading, isError, mutate } = useOrders(directionFilter, statusFilter)
 
+  // Handle errors (token refresh failures)
   React.useEffect(() => {
-    async function loadOrders() {
-      if (!session?.accessToken || !session?.refreshToken) {
-        setIsLoading(false)
-        return
-      }
-
-      setIsLoading(true)
-      try {
-        const data = await fetchOrders({
-          accessToken: session.accessToken,
-          refreshToken: session.refreshToken,
-          direction: directionFilter,
-          status: statusFilter,
-          onTokenUpdate: async (newAccessToken, newRefreshToken) => {
-            await updateSession({
-              accessToken: newAccessToken,
-              refreshToken: newRefreshToken,
-            })
-          },
-        })
-        setOrders(data)
-      } catch (error) {
-        console.error("Failed to fetch orders:", error)
-        // If token refresh failed, logout the user
-        if (error instanceof Error && error.message.includes("Token refresh failed")) {
-          await signOut({ redirect: false })
+    if (isError) {
+      if (isError instanceof Error && isError.message.includes("Token refresh failed")) {
+        signOut({ redirect: false }).then(() => {
           router.push("/login")
           router.refresh()
-          return
-        }
-        setOrders([])
-      } finally {
-        setIsLoading(false)
+        })
       }
     }
-
-    loadOrders()
-  }, [session?.accessToken, session?.refreshToken, directionFilter, statusFilter, updateSession, router])
+  }, [isError, router])
 
   return (
     <div className="md:hidden w-full">

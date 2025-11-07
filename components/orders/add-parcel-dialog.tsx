@@ -36,6 +36,7 @@ interface AddParcelDialogProps {
   accessToken: string
   refreshToken: string
   onTokenUpdate: (accessToken: string, refreshToken: string) => Promise<void>
+  isDoorToDoor?: boolean
 }
 
 const SIZES = [
@@ -53,6 +54,7 @@ export function AddParcelDialog({
   accessToken,
   refreshToken,
   onTokenUpdate,
+  isDoorToDoor = false,
 }: AddParcelDialogProps) {
   const [description, setDescription] = React.useState("")
   const [value, setValue] = React.useState("")
@@ -115,34 +117,56 @@ export function AddParcelDialog({
   }, [deliveryLocationSearch, countryCode, accessToken, refreshToken, onTokenUpdate])
 
   const handleSubmit = () => {
-    if (!description || !selectedSize || !recipientName || !recipientPhone) {
+    if (!description || !selectedSize) {
       toast.error("Please fill in all required fields")
       return
     }
 
-    if (!selectedDestinationOffice) {
-      toast.error("Please select a destination office")
-      return
-    }
+    // For door-to-door, recipient info is not needed at parcel level
+    if (!isDoorToDoor) {
+      if (!recipientName || !recipientPhone) {
+        toast.error("Please fill in all required fields")
+        return
+      }
 
-    const selectedOffice = destinationOffices.find((o) => o.id === selectedDestinationOffice)
-    if (!selectedOffice) {
-      toast.error("Please select a valid destination office")
-      return
-    }
+      if (!selectedDestinationOffice) {
+        toast.error("Please select a destination office")
+        return
+      }
 
-    onAddParcel({
-      description,
-      value,
-      cod,
-      amount: cod ? amount : "",
-      size: selectedSize,
-      recipientName,
-      recipientPhone,
-      specialNotes,
-      deliveryDestination: selectedOffice.office_name,
-      destination_agent_office: selectedDestinationOffice,
-    })
+      const selectedOffice = destinationOffices.find((o) => o.id === selectedDestinationOffice)
+      if (!selectedOffice) {
+        toast.error("Please select a valid destination office")
+        return
+      }
+
+      onAddParcel({
+        description,
+        value,
+        cod,
+        amount: cod ? amount : "",
+        size: selectedSize,
+        recipientName,
+        recipientPhone,
+        specialNotes,
+        deliveryDestination: selectedOffice.office_name,
+        destination_agent_office: selectedDestinationOffice,
+      })
+    } else {
+      // For door-to-door, use empty strings for recipient and destination
+      onAddParcel({
+        description,
+        value,
+        cod,
+        amount: cod ? amount : "",
+        size: selectedSize,
+        recipientName: "",
+        recipientPhone: "",
+        specialNotes,
+        deliveryDestination: "",
+        destination_agent_office: "",
+      })
+    }
 
     // Reset form
     setDescription("")
@@ -291,47 +315,51 @@ export function AddParcelDialog({
             </div>
           </div>
 
-          {/* Recipient Name */}
-          <div className="space-y-2">
-            <Label>Recipient Name</Label>
-            <Input
-              type="text"
-              placeholder="Recipient Name"
-              value={recipientName}
-              onChange={(e) => setRecipientName(e.target.value)}
-              className="h-12 rounded-xl"
-            />
-          </div>
-
-          {/* Recipient Phone */}
-          <div className="space-y-2">
-            <Label>Recipient Phone</Label>
-            <div className="relative flex items-center">
-              <div className="absolute left-3 flex items-center gap-2">
-                <span className="text-lg">🇺🇬</span>
-                <svg
-                  className="h-4 w-4 text-muted-foreground"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 9l-7 7-7-7"
-                  />
-                </svg>
-              </div>
+          {/* Recipient Name - Only for waka-agent orders */}
+          {!isDoorToDoor && (
+            <div className="space-y-2">
+              <Label>Recipient Name</Label>
               <Input
-                type="tel"
-                placeholder="phone number"
-                value={recipientPhone}
-                onChange={(e) => setRecipientPhone(e.target.value)}
-                className="pl-16 h-12 rounded-xl"
+                type="text"
+                placeholder="Recipient Name"
+                value={recipientName}
+                onChange={(e) => setRecipientName(e.target.value)}
+                className="h-12 rounded-xl"
               />
             </div>
-          </div>
+          )}
+
+          {/* Recipient Phone - Only for waka-agent orders */}
+          {!isDoorToDoor && (
+            <div className="space-y-2">
+              <Label>Recipient Phone</Label>
+              <div className="relative flex items-center">
+                <div className="absolute left-3 flex items-center gap-2">
+                  <span className="text-lg">🇺🇬</span>
+                  <svg
+                    className="h-4 w-4 text-muted-foreground"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                </div>
+                <Input
+                  type="tel"
+                  placeholder="phone number"
+                  value={recipientPhone}
+                  onChange={(e) => setRecipientPhone(e.target.value)}
+                  className="pl-16 h-12 rounded-xl"
+                />
+              </div>
+            </div>
+          )}
 
           {/* Special Notes */}
           <div className="space-y-2">
@@ -344,9 +372,10 @@ export function AddParcelDialog({
             />
           </div>
 
-          {/* Delivery Destination Search */}
-          <div className="space-y-2">
-            <Label>Delivery Destination</Label>
+          {/* Delivery Destination Search - Only for waka-agent orders */}
+          {!isDoorToDoor && (
+            <div className="space-y-2">
+              <Label>Delivery Destination</Label>
             <div className="relative">
               {/* Pentagon icon for agent selector */}
               <svg
@@ -437,15 +466,16 @@ export function AddParcelDialog({
               destinationOffices.length === 0 && (
                 <p className="text-xs text-muted-foreground">No offices found</p>
               )}
-          </div>
 
-          {/* Selected Office Display */}
-          {selectedDestinationOffice && selectedDestinationOfficeData && (
-            <div className="p-3 rounded-xl bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800">
-              <div className="flex items-center gap-2 text-green-700 dark:text-green-300">
-                <CheckIcon className="h-4 w-4" />
-                <span className="text-sm font-medium">Selected: {selectedDestinationOfficeData.office_name}</span>
+            {/* Selected Office Display */}
+            {selectedDestinationOffice && selectedDestinationOfficeData && (
+              <div className="p-3 rounded-xl bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800">
+                <div className="flex items-center gap-2 text-green-700 dark:text-green-300">
+                  <CheckIcon className="h-4 w-4" />
+                  <span className="text-sm font-medium">Selected: {selectedDestinationOfficeData.office_name}</span>
+                </div>
               </div>
+            )}
             </div>
           )}
 
@@ -453,7 +483,7 @@ export function AddParcelDialog({
           <div className="pt-4">
             <Button
               onClick={handleSubmit}
-              disabled={!selectedDestinationOffice}
+              disabled={!isDoorToDoor && !selectedDestinationOffice}
               className="w-full h-12 rounded-xl bg-green-600 text-background font-medium disabled:opacity-50"
             >
               Add Parcel

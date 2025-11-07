@@ -8,8 +8,8 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import WalletActionDrawer from "@/components/shared/wallet-action-drawer"
 import { cn } from "@/lib/utils"
-import { fetchWallet, fetchWalletTransactions } from "@/lib/services/wallet"
-import { Wallet, Transaction } from "@/types/wallet"
+import { useWallet, useWalletTransactions } from "@/lib/hooks/use-wallet"
+import { Transaction } from "@/types/wallet"
 import { ChevronRightIcon, CalendarDaysIcon, EyeSlashIcon } from "@heroicons/react/24/outline"
 import { ArrowDownIcon, EyeIcon, PlusCircleIcon } from "@heroicons/react/24/solid"
 import { BanknoteArrowUp } from "lucide-react"
@@ -113,74 +113,33 @@ function mapTransactionToTxn(transaction: Transaction, currency: string): Txn {
 }
 
 export function MobileWallet() {
-  const { data: session, update: updateSession } = useSession()
   const router = useRouter()
-  const [wallet, setWallet] = React.useState<Wallet | null>(null)
-  const [txns, setTxns] = React.useState<Txn[]>([])
-  const [isLoading, setIsLoading] = React.useState(true)
+  const { wallet, isLoading: isLoadingWallet, isError: walletError, mutate: mutateWallet } = useWallet()
+  const { transactions, isLoading: isLoadingTransactions, isError: transactionsError, mutate: mutateTransactions } = useWalletTransactions(wallet?.id || null)
   const [isBalanceVisible, setIsBalanceVisible] = React.useState(false)
   const [open, setOpen] = React.useState(false)
   const [action, setAction] = React.useState<"topup" | "withdraw" | "paydebt">("topup")
 
+  const isLoading = isLoadingWallet || isLoadingTransactions
+
+  // Map transactions to UI format
+  const txns = React.useMemo(() => {
+    if (!wallet || !Array.isArray(transactions)) return []
+    return transactions.map((t) => mapTransactionToTxn(t, wallet.currency))
+  }, [wallet, transactions])
+
+  // Handle errors (token refresh failures)
   React.useEffect(() => {
-    async function loadWalletData() {
-      if (!session?.accessToken || !session?.refreshToken) {
-        setIsLoading(false)
-        return
-      }
-
-      setIsLoading(true)
-      try {
-        // Fetch wallet
-        const walletData = await fetchWallet({
-          accessToken: session.accessToken,
-          refreshToken: session.refreshToken,
-          onTokenUpdate: async (newAccessToken, newRefreshToken) => {
-            await updateSession({
-              accessToken: newAccessToken,
-              refreshToken: newRefreshToken,
-            })
-          },
-        })
-
-        if (walletData) {
-          setWallet(walletData)
-
-          // Fetch transactions for this wallet
-          const transactions = await fetchWalletTransactions({
-            walletId: walletData.id,
-            accessToken: session.accessToken,
-            refreshToken: session.refreshToken,
-            onTokenUpdate: async (newAccessToken, newRefreshToken) => {
-              await updateSession({
-                accessToken: newAccessToken,
-                refreshToken: newRefreshToken,
-              })
-            },
-          })
-
-          // Map API transactions to UI format
-          const mappedTxns = transactions.map((t) =>
-            mapTransactionToTxn(t, walletData.currency)
-          )
-          setTxns(mappedTxns)
-        }
-      } catch (err) {
-        console.error("Failed to fetch wallet data:", err)
-        // If token refresh failed, logout the user
-        if (err instanceof Error && err.message.includes("Token refresh failed")) {
-          await signOut({ redirect: false })
+    if (walletError || transactionsError) {
+      const error = walletError || transactionsError
+      if (error instanceof Error && error.message.includes("Token refresh failed")) {
+        signOut({ redirect: false }).then(() => {
           router.push("/login")
           router.refresh()
-          return
-        }
-      } finally {
-        setIsLoading(false)
+        })
       }
     }
-
-    loadWalletData()
-  }, [session?.accessToken, session?.refreshToken, updateSession, router])
+  }, [walletError, transactionsError, router])
 
   const grouped = groupByDate(txns)
 
@@ -242,7 +201,7 @@ export function MobileWallet() {
         </Button>
          <Button className="w-full h-12" onClick={() => { setAction("paydebt"); setOpen(true) }}>
           <BanknoteArrowUp className="h-5 w-5" />
-          <span className="text-sm font-medium">Pay Debt</span>
+          <span className="text-sm font-medium">Pay Order</span>
         </Button>
       </div>
 

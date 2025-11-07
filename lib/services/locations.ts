@@ -1,5 +1,4 @@
-import { getApiUrl, API_URLS } from "@/lib/constants"
-import { fetchWithAuth } from "./api-client"
+import { INTERNAL_API_URLS } from "@/lib/constants"
 
 export interface GeocodeResult {
   display_name: string
@@ -50,12 +49,7 @@ export async function geocodeLocation(
   const { query, country, limit = 5, accessToken, refreshToken, onTokenUpdate } = params
 
   try {
-    if (process.env.NODE_ENV !== "production") {
-      console.log("[locations.geocodeLocation] POST", getApiUrl(API_URLS.GEOCODE))
-      console.log("[locations.geocodeLocation] payload", { query, country, limit })
-    }
-
-    const url = getApiUrl(API_URLS.GEOCODE)
+    const url = INTERNAL_API_URLS.GEOCODE
 
     const payload = {
       query,
@@ -63,19 +57,18 @@ export async function geocodeLocation(
       limit,
     }
 
-    const response = await fetchWithAuth(
-      url,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[locations.geocodeLocation] POST", url)
+      console.log("[locations.geocodeLocation] payload", { query, country, limit })
+    }
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
       },
-      accessToken,
-      refreshToken,
-      onTokenUpdate
-    )
+      body: JSON.stringify(payload),
+    })
 
     if (process.env.NODE_ENV !== "production") {
       console.log("[locations.geocodeLocation] status", response.status)

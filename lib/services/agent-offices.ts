@@ -1,5 +1,4 @@
-import { getApiUrl, API_URLS } from "@/lib/constants"
-import { fetchWithAuth } from "./api-client"
+import { INTERNAL_API_URLS } from "@/lib/constants"
 
 export interface AgentOffice {
   id: string
@@ -57,24 +56,18 @@ export async function fetchAgentOffices(
   const { accessToken, refreshToken, onTokenUpdate } = params
 
   try {
+    const url = INTERNAL_API_URLS.AGENT_OFFICES
+
     if (process.env.NODE_ENV !== "production") {
-      console.log("[agent-offices.fetchAgentOffices] GET", getApiUrl(API_URLS.AGENT_OFFICES))
+      console.log("[agent-offices.fetchAgentOffices] GET", url)
     }
 
-    const url = getApiUrl(API_URLS.AGENT_OFFICES)
-
-    const response = await fetchWithAuth(
-      url,
-      {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
       },
-      accessToken,
-      refreshToken,
-      onTokenUpdate
-    )
+    })
 
     if (process.env.NODE_ENV !== "production") {
       console.log("[agent-offices.fetchAgentOffices] status", response.status)
@@ -139,11 +132,10 @@ export async function searchAgentOfficesByLocation(
     params
 
   try {
+    const url = INTERNAL_API_URLS.AGENT_OFFICES_NEARBY
+
     if (process.env.NODE_ENV !== "production") {
-      console.log(
-        "[agent-offices.searchAgentOfficesByLocation] POST",
-        getApiUrl(API_URLS.AGENT_OFFICES_NEARBY)
-      )
+      console.log("[agent-offices.searchAgentOfficesByLocation] POST", url)
       console.log("[agent-offices.searchAgentOfficesByLocation] payload", {
         country,
         location_name,
@@ -151,25 +143,17 @@ export async function searchAgentOfficesByLocation(
       })
     }
 
-    const url = getApiUrl(API_URLS.AGENT_OFFICES_NEARBY)
-
-    const response = await fetchWithAuth(
-      url,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          country,
-          location_name,
-          radius_km,
-        }),
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
       },
-      accessToken,
-      refreshToken,
-      onTokenUpdate
-    )
+      body: JSON.stringify({
+        country,
+        location_name,
+        radius_km,
+      }),
+    })
 
     if (process.env.NODE_ENV !== "production") {
       console.log("[agent-offices.searchAgentOfficesByLocation] status", response.status)
@@ -278,16 +262,7 @@ export async function createAgentOffice(
   } = params
 
   try {
-    if (process.env.NODE_ENV !== "production") {
-      console.log("[agent-offices.createAgentOffice] POST", getApiUrl(API_URLS.AGENT_OFFICES))
-      console.log("[agent-offices.createAgentOffice] payload", {
-        office_name,
-        city,
-        country,
-      })
-    }
-
-    const url = getApiUrl(API_URLS.AGENT_OFFICES)
+    const url = INTERNAL_API_URLS.AGENT_OFFICES
 
     const payload = {
       office_name,
@@ -302,19 +277,22 @@ export async function createAgentOffice(
       opening_hours,
     }
 
-    const response = await fetchWithAuth(
-      url,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[agent-offices.createAgentOffice] POST", url)
+      console.log("[agent-offices.createAgentOffice] payload", {
+        office_name,
+        city,
+        country,
+      })
+    }
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
       },
-      accessToken,
-      refreshToken,
-      onTokenUpdate
-    )
+      body: JSON.stringify(payload),
+    })
 
     if (process.env.NODE_ENV !== "production") {
       console.log("[agent-offices.createAgentOffice] status", response.status)
@@ -390,19 +368,7 @@ export async function updateAgentOffice(
   } = params
 
   try {
-    if (process.env.NODE_ENV !== "production") {
-      console.log(
-        "[agent-offices.updateAgentOffice] PUT",
-        `${getApiUrl(API_URLS.AGENT_OFFICES)}/${officeId}`
-      )
-      console.log("[agent-offices.updateAgentOffice] payload", {
-        office_name,
-        city,
-        country,
-      })
-    }
-
-    const url = `${getApiUrl(API_URLS.AGENT_OFFICES)}/${officeId}`
+    const url = `${INTERNAL_API_URLS.AGENT_OFFICES}/${officeId}`
 
     const payload = {
       office_name,
@@ -417,19 +383,22 @@ export async function updateAgentOffice(
       opening_hours,
     }
 
-    const response = await fetchWithAuth(
-      url,
-      {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[agent-offices.updateAgentOffice] PUT", url)
+      console.log("[agent-offices.updateAgentOffice] payload", {
+        office_name,
+        city,
+        country,
+      })
+    }
+
+    const response = await fetch(url, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
       },
-      accessToken,
-      refreshToken,
-      onTokenUpdate
-    )
+      body: JSON.stringify(payload),
+    })
 
     if (process.env.NODE_ENV !== "production") {
       console.log("[agent-offices.updateAgentOffice] status", response.status)
@@ -488,27 +457,18 @@ export async function deleteAgentOffice(params: DeleteAgentOfficeParams): Promis
   const { officeId, accessToken, refreshToken, onTokenUpdate } = params
 
   try {
+    const url = `${INTERNAL_API_URLS.AGENT_OFFICES}/${officeId}`
+
     if (process.env.NODE_ENV !== "production") {
-      console.log(
-        "[agent-offices.deleteAgentOffice] DELETE",
-        `${getApiUrl(API_URLS.AGENT_OFFICES)}/${officeId}`
-      )
+      console.log("[agent-offices.deleteAgentOffice] DELETE", url)
     }
 
-    const url = `${getApiUrl(API_URLS.AGENT_OFFICES)}/${officeId}`
-
-    const response = await fetchWithAuth(
-      url,
-      {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-        },
+    const response = await fetch(url, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
       },
-      accessToken,
-      refreshToken,
-      onTokenUpdate
-    )
+    })
 
     if (process.env.NODE_ENV !== "production") {
       console.log("[agent-offices.deleteAgentOffice] status", response.status)

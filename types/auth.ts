@@ -30,7 +30,7 @@ export interface RegisterRequest {
   first_name: string
   last_name: string
   phone_number: string
-  user_type: "agent"
+  user_type: "customer"
 }
 
 export interface RegisterResponse {

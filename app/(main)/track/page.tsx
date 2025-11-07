@@ -105,13 +105,48 @@ function TrackingContent() {
               if (directions && directions.directions) {
                 // Extract route coordinates from directions
                 // API returns coordinates as [lng, lat], convert to [lat, lng] for Leaflet
-                const routeCoordinates: Array<[number, number]> = directions.directions.map(
-                  (step) => {
+                const routeCoordinates: Array<[number, number]> = directions.directions
+                  .filter((step) => {
+                    // Validate that step has coordinates
+                    return (
+                      step &&
+                      step.coordinates &&
+                      Array.isArray(step.coordinates) &&
+                      step.coordinates.length >= 2 &&
+                      typeof step.coordinates[0] === "number" &&
+                      typeof step.coordinates[1] === "number" &&
+                      !isNaN(step.coordinates[0]) &&
+                      !isNaN(step.coordinates[1])
+                    )
+                  })
+                  .map((step) => {
                     // step.coordinates is [lng, lat], convert to [lat, lng]
-                    return [step.coordinates[1], step.coordinates[0]]
-                  }
-                )
-                setRoute(routeCoordinates)
+                    const lng = step.coordinates[0]
+                    const lat = step.coordinates[1]
+                    return [lat, lng] as [number, number]
+                  })
+                  .filter((coord) => {
+                    // Final validation of converted coordinates
+                    const [lat, lng] = coord
+                    return (
+                      typeof lat === "number" &&
+                      typeof lng === "number" &&
+                      !isNaN(lat) &&
+                      !isNaN(lng) &&
+                      isFinite(lat) &&
+                      isFinite(lng) &&
+                      lat >= -90 &&
+                      lat <= 90 &&
+                      lng >= -180 &&
+                      lng <= 180
+                    )
+                  })
+
+                if (routeCoordinates.length >= 2) {
+                  setRoute(routeCoordinates)
+                } else {
+                  console.warn("[TrackingPage] Invalid route coordinates from directions API")
+                }
               }
             })
             .catch((err) => {

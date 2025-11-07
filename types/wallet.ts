@@ -1,16 +1,16 @@
 // Wallet and transaction related types
 
 export interface Wallet {
-  id: string
-  user: string
-  user_name: string
+  id?: string
+  user?: string
+  user_name?: string
   wallet_type: string
   balance: string
   currency: string
   is_active: boolean
   is_frozen: boolean
-  created_at: string
-  updated_at: string
+  created_at?: string
+  updated_at?: string
 }
 
 export interface WalletListResponse {

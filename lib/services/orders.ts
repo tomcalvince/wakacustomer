@@ -1,4 +1,4 @@
-import { getApiUrl, API_URLS } from "@/lib/constants"
+import { INTERNAL_API_URLS } from "@/lib/constants"
 import {
   Order,
   OrderDetails,
@@ -7,7 +7,6 @@ import {
   TrackingData,
   DirectionsResponse,
 } from "@/types/orders"
-import { fetchWithAuth } from "./api-client"
 
 export interface FetchOrdersParams {
   direction?: OrderDirection
@@ -25,35 +24,30 @@ export interface FetchOrdersParams {
 export async function fetchOrders(params: FetchOrdersParams): Promise<Order[]> {
   const { accessToken, refreshToken, direction, status, onTokenUpdate } = params
 
+  // Build query parameters
+  const queryParams = new URLSearchParams()
+  if (direction && direction !== "all") {
+    queryParams.append("direction", direction)
+  }
+  if (status && status !== "all") {
+    queryParams.append("status", status)
+  }
+
+  const url = `${INTERNAL_API_URLS.ORDERS}${queryParams.toString() ? `?${queryParams.toString()}` : ""}`
+
   try {
+
     if (process.env.NODE_ENV !== "production") {
-      console.log("[orders.fetchOrders] GET", getApiUrl(API_URLS.AGENT_ORDERS))
+      console.log("[orders.fetchOrders] GET", url)
       console.log("[orders.fetchOrders] filters", { direction, status })
     }
 
-    // Build query parameters
-    const queryParams = new URLSearchParams()
-    if (direction && direction !== "all") {
-      queryParams.append("direction", direction)
-    }
-    if (status && status !== "all") {
-      queryParams.append("status", status)
-    }
-
-    const url = `${getApiUrl(API_URLS.AGENT_ORDERS)}${queryParams.toString() ? `?${queryParams.toString()}` : ""}`
-
-    const response = await fetchWithAuth(
-      url,
-      {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
       },
-      accessToken,
-      refreshToken,
-      onTokenUpdate
-    )
+    })
 
     if (process.env.NODE_ENV !== "production") {
       console.log("[orders.fetchOrders] status", response.status)
@@ -61,19 +55,44 @@ export async function fetchOrders(params: FetchOrdersParams): Promise<Order[]> {
 
     if (!response.ok) {
       let errorData: any = {}
+      let errorText = ""
       try {
         const contentType = response.headers.get("content-type")
         if (contentType?.includes("application/json")) {
           errorData = await response.json()
+        } else {
+          errorText = await response.text()
         }
       } catch (parseError) {
         if (process.env.NODE_ENV !== "production") {
           console.error("[orders.fetchOrders] failed to parse error response", parseError)
         }
+        try {
+          errorText = await response.text()
+        } catch (textError) {
+          // Ignore if we can't get text either
+        }
       }
 
       if (process.env.NODE_ENV !== "production") {
-        console.error("[orders.fetchOrders] error", errorData)
+        const logData: any = {
+          url,
+          status: response?.status ?? "unknown",
+          statusText: response?.statusText ?? "unknown",
+        }
+        
+        if (Object.keys(errorData).length > 0) {
+          logData.errorData = errorData
+        }
+        
+        if (errorText) {
+          logData.errorText = errorText.substring(0, 500) // Limit length
+        }
+        
+        // Only log if we have meaningful data
+        if (logData.status !== "unknown" || logData.errorData || logData.errorText) {
+          console.error("[orders.fetchOrders] error", logData)
+        }
       }
 
       // Return empty array on error instead of throwing
@@ -87,9 +106,27 @@ export async function fetchOrders(params: FetchOrdersParams): Promise<Order[]> {
     }
 
     return data || []
-  } catch (error) {
+  } catch (error: any) {
     if (process.env.NODE_ENV !== "production") {
-      console.error("[orders.fetchOrders] exception", error)
+      const errorInfo: any = {
+        url: `${INTERNAL_API_URLS.ORDERS}${queryParams.toString() ? `?${queryParams.toString()}` : ""}`,
+        message: error?.message || "Unknown error",
+        name: error?.name || "Error",
+      }
+      
+      if (error?.code) {
+        errorInfo.code = error.code
+      }
+      
+      if (error?.cause) {
+        errorInfo.cause = error.cause
+      }
+      
+      if (error?.stack) {
+        errorInfo.stack = error.stack
+      }
+      
+      console.error("[orders.fetchOrders] exception", errorInfo)
     }
     // If error is about token refresh failure, re-throw to trigger logout
     if (error instanceof Error && error.message.includes("Token refresh failed")) {
@@ -119,24 +156,18 @@ export async function fetchOrderDetails(
   const { orderId, accessToken, refreshToken, onTokenUpdate } = params
 
   try {
+    const url = `${INTERNAL_API_URLS.ORDERS}/${orderId}`
+
     if (process.env.NODE_ENV !== "production") {
-      console.log("[orders.fetchOrderDetails] GET", `${getApiUrl(API_URLS.ORDER_DETAILS)}/${orderId}`)
+      console.log("[orders.fetchOrderDetails] GET", url)
     }
 
-    const url = `${getApiUrl(API_URLS.ORDER_DETAILS)}/${orderId}`
-
-    const response = await fetchWithAuth(
-      url,
-      {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
       },
-      accessToken,
-      refreshToken,
-      onTokenUpdate
-    )
+    })
 
     if (process.env.NODE_ENV !== "production") {
       console.log("[orders.fetchOrderDetails] status", response.status)
@@ -144,19 +175,44 @@ export async function fetchOrderDetails(
 
     if (!response.ok) {
       let errorData: any = {}
+      let errorText = ""
       try {
         const contentType = response.headers.get("content-type")
         if (contentType?.includes("application/json")) {
           errorData = await response.json()
+        } else {
+          errorText = await response.text()
         }
       } catch (parseError) {
         if (process.env.NODE_ENV !== "production") {
           console.error("[orders.fetchOrderDetails] failed to parse error response", parseError)
         }
+        try {
+          errorText = await response.text()
+        } catch (textError) {
+          // Ignore if we can't get text either
+        }
       }
 
       if (process.env.NODE_ENV !== "production") {
-        console.error("[orders.fetchOrderDetails] error", errorData)
+        const logData: any = {
+          url,
+          status: response?.status ?? "unknown",
+          statusText: response?.statusText ?? "unknown",
+        }
+        
+        if (Object.keys(errorData).length > 0) {
+          logData.errorData = errorData
+        }
+        
+        if (errorText) {
+          logData.errorText = errorText.substring(0, 500) // Limit length
+        }
+        
+        // Only log if we have meaningful data
+        if (logData.status !== "unknown" || logData.errorData || logData.errorText) {
+          console.error("[orders.fetchOrderDetails] error", logData)
+        }
       }
 
       // Return null on error instead of throwing (unless it's a token refresh failure)
@@ -170,9 +226,27 @@ export async function fetchOrderDetails(
     }
 
     return data || null
-  } catch (error) {
+  } catch (error: any) {
     if (process.env.NODE_ENV !== "production") {
-      console.error("[orders.fetchOrderDetails] exception", error)
+      const errorInfo: any = {
+        url: `${INTERNAL_API_URLS.ORDERS}/${orderId}`,
+        message: error?.message || "Unknown error",
+        name: error?.name || "Error",
+      }
+      
+      if (error?.code) {
+        errorInfo.code = error.code
+      }
+      
+      if (error?.cause) {
+        errorInfo.cause = error.cause
+      }
+      
+      if (error?.stack) {
+        errorInfo.stack = error.stack
+      }
+      
+      console.error("[orders.fetchOrderDetails] exception", errorInfo)
     }
     // If error is about token refresh failure, re-throw to trigger logout
     if (error instanceof Error && error.message.includes("Token refresh failed")) {
@@ -202,27 +276,18 @@ export async function fetchTrackingData(
   const { trackingNumber, accessToken, refreshToken, onTokenUpdate } = params
 
   try {
+    const url = `${INTERNAL_API_URLS.ORDERS_TRACKING}/${trackingNumber}`
+
     if (process.env.NODE_ENV !== "production") {
-      console.log(
-        "[orders.fetchTrackingData] GET",
-        `${getApiUrl(API_URLS.ORDER_TRACKING)}/${trackingNumber}`
-      )
+      console.log("[orders.fetchTrackingData] GET", url)
     }
 
-    const url = `${getApiUrl(API_URLS.ORDER_TRACKING)}/${trackingNumber}`
-
-    const response = await fetchWithAuth(
-      url,
-      {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
       },
-      accessToken,
-      refreshToken,
-      onTokenUpdate
-    )
+    })
 
     if (process.env.NODE_ENV !== "production") {
       console.log("[orders.fetchTrackingData] status", response.status)
@@ -230,19 +295,44 @@ export async function fetchTrackingData(
 
     if (!response.ok) {
       let errorData: any = {}
+      let errorText = ""
       try {
         const contentType = response.headers.get("content-type")
         if (contentType?.includes("application/json")) {
           errorData = await response.json()
+        } else {
+          errorText = await response.text()
         }
       } catch (parseError) {
         if (process.env.NODE_ENV !== "production") {
           console.error("[orders.fetchTrackingData] failed to parse error response", parseError)
         }
+        try {
+          errorText = await response.text()
+        } catch (textError) {
+          // Ignore if we can't get text either
+        }
       }
 
       if (process.env.NODE_ENV !== "production") {
-        console.error("[orders.fetchTrackingData] error", errorData)
+        const logData: any = {
+          url,
+          status: response?.status ?? "unknown",
+          statusText: response?.statusText ?? "unknown",
+        }
+        
+        if (Object.keys(errorData).length > 0) {
+          logData.errorData = errorData
+        }
+        
+        if (errorText) {
+          logData.errorText = errorText.substring(0, 500) // Limit length
+        }
+        
+        // Only log if we have meaningful data
+        if (logData.status !== "unknown" || logData.errorData || logData.errorText) {
+          console.error("[orders.fetchTrackingData] error", logData)
+        }
       }
 
       // Return null on error instead of throwing (unless it's a token refresh failure)
@@ -256,9 +346,27 @@ export async function fetchTrackingData(
     }
 
     return data || null
-  } catch (error) {
+  } catch (error: any) {
     if (process.env.NODE_ENV !== "production") {
-      console.error("[orders.fetchTrackingData] exception", error)
+      const errorInfo: any = {
+        url: `${INTERNAL_API_URLS.ORDERS_TRACKING}/${trackingNumber}`,
+        message: error?.message || "Unknown error",
+        name: error?.name || "Error",
+      }
+      
+      if (error?.code) {
+        errorInfo.code = error.code
+      }
+      
+      if (error?.cause) {
+        errorInfo.cause = error.cause
+      }
+      
+      if (error?.stack) {
+        errorInfo.stack = error.stack
+      }
+      
+      console.error("[orders.fetchTrackingData] exception", errorInfo)
     }
     // If error is about token refresh failure, re-throw to trigger logout
     if (error instanceof Error && error.message.includes("Token refresh failed")) {
@@ -303,8 +411,10 @@ export async function fetchDirections(
   } = params
 
   try {
+    const url = INTERNAL_API_URLS.NAVIGATION_DIRECTIONS
+
     if (process.env.NODE_ENV !== "production") {
-      console.log("[orders.fetchDirections] POST", getApiUrl(API_URLS.NAVIGATION_DIRECTIONS))
+      console.log("[orders.fetchDirections] POST", url)
       console.log("[orders.fetchDirections] payload", {
         start_latitude,
         start_longitude,
@@ -315,28 +425,20 @@ export async function fetchDirections(
       })
     }
 
-    const url = getApiUrl(API_URLS.NAVIGATION_DIRECTIONS)
-
-    const response = await fetchWithAuth(
-      url,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          start_latitude,
-          start_longitude,
-          end_latitude,
-          end_longitude,
-          country,
-          user_type,
-        }),
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
       },
-      accessToken,
-      refreshToken,
-      onTokenUpdate
-    )
+      body: JSON.stringify({
+        start_latitude,
+        start_longitude,
+        end_latitude,
+        end_longitude,
+        country,
+        user_type,
+      }),
+    })
 
     if (process.env.NODE_ENV !== "production") {
       console.log("[orders.fetchDirections] status", response.status)
@@ -418,24 +520,18 @@ export async function fetchDeliveryWindows(
   const { accessToken, refreshToken, onTokenUpdate } = params
 
   try {
+    const url = INTERNAL_API_URLS.DELIVERY_WINDOWS
+
     if (process.env.NODE_ENV !== "production") {
-      console.log("[orders.fetchDeliveryWindows] GET", getApiUrl(API_URLS.DELIVERY_WINDOWS))
+      console.log("[orders.fetchDeliveryWindows] GET", url)
     }
 
-    const url = getApiUrl(API_URLS.DELIVERY_WINDOWS)
-
-    const response = await fetchWithAuth(
-      url,
-      {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
       },
-      accessToken,
-      refreshToken,
-      onTokenUpdate
-    )
+    })
 
     if (process.env.NODE_ENV !== "production") {
       console.log("[orders.fetchDeliveryWindows] status", response.status)
@@ -574,22 +670,7 @@ export async function createMultiRecipientOrder(
   } = params
 
   try {
-    if (process.env.NODE_ENV !== "production") {
-      console.log(
-        "[orders.createMultiRecipientOrder] POST",
-        getApiUrl(API_URLS.MULTIRECIPIENT_ORDERS)
-      )
-      console.log("[orders.createMultiRecipientOrder] payload", {
-        origin_agent_office,
-        sender_name,
-        sender_phone,
-        service_option,
-        delivery_time,
-        parcels_count: parcels.length,
-      })
-    }
-
-    const url = getApiUrl(API_URLS.MULTIRECIPIENT_ORDERS)
+    const url = INTERNAL_API_URLS.ORDERS
 
     const payload = {
       origin_agent_office,
@@ -601,19 +682,25 @@ export async function createMultiRecipientOrder(
       parcels,
     }
 
-    const response = await fetchWithAuth(
-      url,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[orders.createMultiRecipientOrder] POST", url)
+      console.log("[orders.createMultiRecipientOrder] payload", {
+        origin_agent_office,
+        sender_name,
+        sender_phone,
+        service_option,
+        delivery_time,
+        parcels_count: parcels.length,
+      })
+    }
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
       },
-      accessToken,
-      refreshToken,
-      onTokenUpdate
-    )
+      body: JSON.stringify(payload),
+    })
 
     if (process.env.NODE_ENV !== "production") {
       console.log("[orders.createMultiRecipientOrder] status", response.status)
@@ -639,7 +726,15 @@ export async function createMultiRecipientOrder(
         console.error("[orders.createMultiRecipientOrder] error", errorData)
       }
 
-      // Return null on error instead of throwing (unless it's a token refresh failure)
+      // Check for insufficient wallet balance error
+      if (errorData.detail === "Insufficient wallet balance") {
+        // Throw a special error with the wallet balance details
+        const walletError = new Error("INSUFFICIENT_WALLET_BALANCE")
+        ;(walletError as any).errorData = errorData
+        throw walletError
+      }
+
+      // Return null on other errors instead of throwing (unless it's a token refresh failure)
       return null
     }
 
@@ -698,34 +793,25 @@ export async function markOrderAsPaid(
   const { orderId, amount, notes, accessToken, refreshToken, onTokenUpdate } = params
 
   try {
-    if (process.env.NODE_ENV !== "production") {
-      console.log(
-        "[orders.markOrderAsPaid] POST",
-        `${getApiUrl(API_URLS.MARK_ORDER_AS_PAID)}/${orderId}/mark-as-paid`
-      )
-      console.log("[orders.markOrderAsPaid] payload", { amount, notes })
-    }
-
-    const url = `${getApiUrl(API_URLS.MARK_ORDER_AS_PAID)}/${orderId}/mark-as-paid`
+    const url = `${INTERNAL_API_URLS.ORDERS}/${orderId}/mark-as-paid`
 
     const payload = {
       amount,
       notes: notes || "",
     }
 
-    const response = await fetchWithAuth(
-      url,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[orders.markOrderAsPaid] POST", url)
+      console.log("[orders.markOrderAsPaid] payload", { amount, notes })
+    }
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
       },
-      accessToken,
-      refreshToken,
-      onTokenUpdate
-    )
+      body: JSON.stringify(payload),
+    })
 
     if (process.env.NODE_ENV !== "production") {
       console.log("[orders.markOrderAsPaid] status", response.status)
@@ -777,5 +863,159 @@ export async function markOrderAsPaid(
       throw error
     }
     throw new Error("An unexpected error occurred while marking order as paid.")
+  }
+}
+
+export interface DoorToDoorParcelPayload {
+  parcel_name: string
+  estimated_weight: number
+  size: string
+  declared_value: number
+  cod?: boolean
+  cod_amount?: string
+}
+
+export interface CreateDoorToDoorOrderParams {
+  sender: string
+  sender_phone: string
+  pickup_address: string
+  pickup_coordinates: [string, string]
+  delivery_address: string
+  delivery_coordinates: [string, string]
+  delivery_time: string
+  parcels: DoorToDoorParcelPayload[]
+  recipient_name: string
+  recipient_phone: string
+  special_instructions?: string
+  accessToken: string
+  refreshToken: string
+  onTokenUpdate: (accessToken: string, refreshToken: string) => Promise<void>
+}
+
+export interface CreateDoorToDoorOrderResponse {
+  id: string
+  order_number: string
+  tracking_number: string
+  status: string
+  payment_status: string
+  [key: string]: any
+}
+
+/**
+ * Creates a door-to-door order
+ * @param params - Parameters including order data, tokens, and token update callback
+ * @returns Created order response or null on error
+ * @throws Error if token refresh fails
+ */
+export async function createDoorToDoorOrder(
+  params: CreateDoorToDoorOrderParams
+): Promise<CreateDoorToDoorOrderResponse | null> {
+  const {
+    sender,
+    sender_phone,
+    pickup_address,
+    pickup_coordinates,
+    delivery_address,
+    delivery_coordinates,
+    delivery_time,
+    parcels,
+    recipient_name,
+    recipient_phone,
+    special_instructions,
+    accessToken,
+    refreshToken,
+    onTokenUpdate,
+  } = params
+
+  try {
+    const url = `${INTERNAL_API_URLS.ORDERS}/door-to-door`
+
+    const payload = {
+      sender,
+      sender_phone,
+      pickup_address,
+      pickup_coordinates,
+      delivery_address,
+      delivery_coordinates,
+      delivery_time,
+      parcels,
+      recipient_name,
+      recipient_phone,
+      special_instructions: special_instructions || "",
+    }
+
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[orders.createDoorToDoorOrder] POST", url)
+      console.log("[orders.createDoorToDoorOrder] payload", {
+        sender,
+        sender_phone,
+        pickup_address,
+        delivery_address,
+        delivery_time,
+        parcels_count: parcels.length,
+      })
+    }
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    })
+
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[orders.createDoorToDoorOrder] status", response.status)
+    }
+
+    if (!response.ok) {
+      let errorData: any = {}
+      try {
+        const contentType = response.headers.get("content-type")
+        if (contentType?.includes("application/json")) {
+          errorData = await response.json()
+        }
+      } catch (parseError) {
+        if (process.env.NODE_ENV !== "production") {
+          console.error(
+            "[orders.createDoorToDoorOrder] failed to parse error response",
+            parseError
+          )
+        }
+      }
+
+      if (process.env.NODE_ENV !== "production") {
+        console.error("[orders.createDoorToDoorOrder] error", errorData)
+      }
+
+      // Check for insufficient wallet balance error
+      if (errorData.detail === "Insufficient wallet balance") {
+        // Throw a special error with the wallet balance details
+        const walletError = new Error("INSUFFICIENT_WALLET_BALANCE")
+        ;(walletError as any).errorData = errorData
+        throw walletError
+      }
+
+      // Return null on other errors instead of throwing (unless it's a token refresh failure)
+      return null
+    }
+
+    const data: CreateDoorToDoorOrderResponse = await response.json()
+
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[orders.createDoorToDoorOrder] success", { order_number: data?.order_number })
+    }
+
+    return data || null
+  } catch (error) {
+    if (process.env.NODE_ENV !== "production") {
+      console.error("[orders.createDoorToDoorOrder] exception", error)
+    }
+    // If error is about token refresh failure, re-throw to trigger logout
+    if (error instanceof Error && error.message.includes("Token refresh failed")) {
+      throw error
+    }
+    // Return null on other errors
+    return null
   }
 }
