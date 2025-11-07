@@ -108,6 +108,18 @@ export function LeafletMap({ className, height = 260, center, zoom = 13, route, 
     try {
       const map = instanceRef.current
 
+      // Ensure map is fully initialized and has required methods
+      if (!map || typeof map.addLayer !== "function" || typeof map.removeLayer !== "function") {
+        console.warn("[LeafletMap] Map not ready, skipping polyline")
+        return
+      }
+
+      // Check if map has a valid container (map might not be fully initialized)
+      if (!map.getContainer || !map.getContainer()) {
+        console.warn("[LeafletMap] Map container not ready, skipping polyline")
+        return
+      }
+
       // Validate and filter route coordinates
       const validRoute = route.filter((coord) => {
         if (!Array.isArray(coord) || coord.length !== 2) return false
@@ -141,23 +153,28 @@ export function LeafletMap({ className, height = 260, center, zoom = 13, route, 
         polylineRef.current = null
       }
 
-      // Add new polyline
-      const poly = L.polyline(validRoute, { color: "#3b82f6", weight: 4, opacity: 0.9 })
-      poly.addTo(map)
-      polylineRef.current = poly
-
-      // Fit bounds to show route (with error handling)
+      // Add new polyline with error handling
       try {
-        const bounds = poly.getBounds()
-        if (bounds && bounds.isValid && bounds.isValid()) {
-          map.fitBounds(bounds, { padding: [20, 20] })
+        const poly = L.polyline(validRoute, { color: "#3b82f6", weight: 4, opacity: 0.9 })
+        poly.addTo(map)
+        polylineRef.current = poly
+
+        // Fit bounds to show route (with error handling)
+        try {
+          const bounds = poly.getBounds()
+          if (bounds && bounds.isValid && bounds.isValid()) {
+            map.fitBounds(bounds, { padding: [20, 20] })
+          }
+        } catch (boundsError) {
+          console.warn("[LeafletMap] Failed to fit bounds:", boundsError)
+          // Fallback: just center on first coordinate
+          if (validRoute.length > 0) {
+            map.setView(validRoute[0], map.getZoom() || 13)
+          }
         }
-      } catch (boundsError) {
-        console.warn("[LeafletMap] Failed to fit bounds:", boundsError)
-        // Fallback: just center on first coordinate
-        if (validRoute.length > 0) {
-          map.setView(validRoute[0], map.getZoom() || 13)
-        }
+      } catch (addError) {
+        console.error("[LeafletMap] Failed to add polyline to map:", addError)
+        return
       }
     } catch (error) {
       console.error("[LeafletMap] Error adding polyline:", error)

@@ -24,8 +24,8 @@ type Txn = {
   currency?: string
 }
 
-const currency = (value: number, code = "KES") =>
-  new Intl.NumberFormat("en-KE", { style: "currency", currency: code, maximumFractionDigits: 2 }).format(value)
+const currency = (value: number, code = "UGX") =>
+  new Intl.NumberFormat("en-UG", { style: "currency", currency: code, maximumFractionDigits: 2 }).format(value)
 
 function groupByDate(transactions: Txn[]) {
   const groups: Record<string, Txn[]> = {}
@@ -115,6 +115,7 @@ function mapTransactionToTxn(transaction: Transaction, currency: string): Txn {
 export function MobileWallet() {
   const router = useRouter()
   const { wallet, isLoading: isLoadingWallet, isError: walletError, mutate: mutateWallet } = useWallet()
+  // Allow transactions to fetch even if wallet fails (will try without walletId)
   const { transactions, isLoading: isLoadingTransactions, isError: transactionsError, mutate: mutateTransactions } = useWalletTransactions(wallet?.id || null)
   const [isBalanceVisible, setIsBalanceVisible] = React.useState(false)
   const [open, setOpen] = React.useState(false)
@@ -122,10 +123,11 @@ export function MobileWallet() {
 
   const isLoading = isLoadingWallet || isLoadingTransactions
 
-  // Map transactions to UI format
+  // Map transactions to UI format - use default currency if wallet not available
   const txns = React.useMemo(() => {
-    if (!wallet || !Array.isArray(transactions)) return []
-    return transactions.map((t) => mapTransactionToTxn(t, wallet.currency))
+    if (!Array.isArray(transactions)) return []
+    const currency = wallet?.currency || "KES"
+    return transactions.map((t) => mapTransactionToTxn(t, currency))
   }, [wallet, transactions])
 
   // Handle errors (token refresh failures)
@@ -169,12 +171,14 @@ export function MobileWallet() {
           </div>
 
           <div className="text-4xl font-semibold tracking-tight">
-            {isLoading ? (
+            {isLoadingWallet ? (
               <span className="text-2xl">...</span>
+            ) : walletError ? (
+              <span className="text-lg opacity-80">Unable to load balance</span>
             ) : isBalanceVisible ? (
-              currency(parseFloat(wallet?.balance ?? "0"))
+              currency(parseFloat(wallet?.balance ?? "0"), wallet?.currency || "KES")
             ) : (
-              <span className="blur-sm select-none">KES ••••••</span>
+              <span className="blur-sm select-none">{wallet?.currency || "KES"} ••••••</span>
             )}
           </div>
           <div className="mt-4 grid grid-cols-2 gap-3">
@@ -215,8 +219,19 @@ export function MobileWallet() {
         </div>
 
         <div className="space-y-4">
-          {isLoading ? (
+          {isLoadingTransactions ? (
             <div className="text-center py-8 text-muted-foreground">Loading transactions...</div>
+          ) : transactionsError ? (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground mb-2">Unable to load transactions</p>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => mutateTransactions()}
+              >
+                Retry
+              </Button>
+            </div>
           ) : Object.keys(grouped).length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">No transactions found</div>
           ) : (

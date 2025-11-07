@@ -135,7 +135,7 @@ export async function fetchWallet(params: FetchWalletParams): Promise<Wallet | n
 }
 
 export interface FetchWalletTransactionsParams {
-  walletId: string
+  walletId: string | null
   accessToken: string
   refreshToken: string
   onTokenUpdate: (accessToken: string, refreshToken: string) => Promise<void>
@@ -143,7 +143,7 @@ export interface FetchWalletTransactionsParams {
 
 /**
  * Fetches wallet transactions from the API
- * @param params - Parameters including walletId, tokens, and token update callback
+ * @param params - Parameters including walletId (optional), tokens, and token update callback
  * @returns Array of transactions or empty array on error
  * @throws Error if token refresh fails
  */
@@ -151,7 +151,10 @@ export async function fetchWalletTransactions(
   params: FetchWalletTransactionsParams
 ): Promise<Transaction[]> {
   const { walletId, accessToken, refreshToken, onTokenUpdate } = params
-  const url = `${INTERNAL_API_URLS.WALLET_TRANSACTIONS}?walletId=${walletId}`
+  // Only add walletId to URL if provided - backend may infer from session
+  const url = walletId 
+    ? `${INTERNAL_API_URLS.WALLET_TRANSACTIONS}?walletId=${walletId}`
+    : INTERNAL_API_URLS.WALLET_TRANSACTIONS
 
   try {
 

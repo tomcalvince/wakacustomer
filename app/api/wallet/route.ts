@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
           Authorization: `Bearer ${session.accessToken}`,
         },
       },
-      30000 // 30 second timeout
+      60000 // 60 second timeout (matching orders endpoint)
     )
 
     const responseBody = await response.text()

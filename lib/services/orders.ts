@@ -75,24 +75,25 @@ export async function fetchOrders(params: FetchOrdersParams): Promise<Order[]> {
       }
 
       if (process.env.NODE_ENV !== "production") {
+        // Build log data with guaranteed fields
         const logData: any = {
-          url,
+          url: url || "unknown",
           status: response?.status ?? "unknown",
           statusText: response?.statusText ?? "unknown",
         }
         
-        if (Object.keys(errorData).length > 0) {
+        // Only add errorData if it has content
+        if (errorData && typeof errorData === "object" && Object.keys(errorData).length > 0) {
           logData.errorData = errorData
         }
         
-        if (errorText) {
+        // Only add errorText if it exists and has content
+        if (errorText && typeof errorText === "string" && errorText.trim().length > 0) {
           logData.errorText = errorText.substring(0, 500) // Limit length
         }
         
-        // Only log if we have meaningful data
-        if (logData.status !== "unknown" || logData.errorData || logData.errorText) {
-          console.error("[orders.fetchOrders] error", logData)
-        }
+        // Always log - logData will have at minimum url, status, and statusText
+        console.error("[orders.fetchOrders] error", logData)
       }
 
       // Return empty array on error instead of throwing

@@ -63,8 +63,8 @@ const satoshi = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Waka Agent",
-  description: "waka agent web app",
+  title: "Waka Customer",
+  description: "waka customer web app",
   icons: {
     icon: [
       { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },

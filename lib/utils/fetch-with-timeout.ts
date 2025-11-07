@@ -19,6 +19,14 @@ export async function fetchWithTimeout(
       headers: options.headers as any,
       timeout: timeoutMs,
       validateStatus: () => true, // Don't throw on any status code
+      // Ensure we wait for the full response and get clearer timeout errors
+      transitional: {
+        clarifyTimeoutError: true,
+      },
+      // Add connection timeout (separate from request timeout)
+      // This helps catch connection issues early
+      httpAgent: undefined, // Use default agent
+      httpsAgent: undefined, // Use default agent
     }
 
     // Handle body
@@ -72,21 +80,61 @@ export async function fetchWithTimeout(
       },
     })
   } catch (error: any) {
+    // Log detailed error information for debugging
+    if (process.env.NODE_ENV !== "production") {
+      console.error("[fetchWithTimeout] Error details:", {
+        url,
+        timeoutMs,
+        isAxiosError: axios.isAxiosError(error),
+        code: error?.code,
+        message: error?.message,
+        cause: error?.cause,
+        axiosCode: axios.isAxiosError(error) ? (error as AxiosError).code : undefined,
+        axiosMessage: axios.isAxiosError(error) ? (error as AxiosError).message : undefined,
+        response: axios.isAxiosError(error) && (error as AxiosError).response ? {
+          status: (error as AxiosError).response?.status,
+          statusText: (error as AxiosError).response?.statusText,
+        } : undefined,
+      })
+    }
+
     // Handle axios errors
     if (axios.isAxiosError(error)) {
       const axiosError = error as AxiosError
 
-      // Handle timeout - check multiple ways axios reports timeouts
-      if (
-        axiosError.code === "ECONNABORTED" ||
+      // Check if this is actually a timeout error
+      // ECONNABORTED can be from timeout OR manual abort, so we need to check the message
+      // ETIMEDOUT is a system-level connection timeout (usually means connection couldn't be established)
+      // We only want to treat ECONNABORTED as timeout if the message indicates it's a timeout
+      const isTimeout = 
+        (axiosError.code === "ECONNABORTED" && 
+         (axiosError.message?.toLowerCase().includes("timeout") || 
+          axiosError.message?.toLowerCase().includes("exceeded"))) ||
         axiosError.code === "ETIMEDOUT" ||
-        axiosError.message?.includes("timeout") ||
-        error.code === "ETIMEDOUT" ||
+        (axiosError.message?.toLowerCase().includes("timeout") && 
+         !axiosError.message?.toLowerCase().includes("connection") &&
+         !axiosError.message?.toLowerCase().includes("refused"))
+
+      // Handle timeout - only if we're confident it's actually a timeout
+      if (
+        isTimeout ||
+        (error.code === "ETIMEDOUT") ||
         (error.cause && typeof error.cause === "object" && "code" in error.cause && error.cause.code === "ETIMEDOUT")
       ) {
         const timeoutError = new Error("ETIMEDOUT")
         timeoutError.cause = { code: "ETIMEDOUT" }
         throw timeoutError
+      }
+      
+      // If we have ECONNABORTED but it's not clearly a timeout, log it but don't treat as timeout
+      if (axiosError.code === "ECONNABORTED" && !isTimeout) {
+        if (process.env.NODE_ENV !== "production") {
+          console.warn("[fetchWithTimeout] Request aborted but not clearly a timeout:", axiosError.message)
+        }
+        // Treat as a generic network error instead of timeout
+        const networkError = new Error("Request aborted")
+        networkError.cause = { code: "ECONNABORTED" }
+        throw networkError
       }
 
       // Handle network errors

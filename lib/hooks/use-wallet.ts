@@ -21,10 +21,11 @@ async function walletFetcher(
 
 /**
  * SWR fetcher function for wallet transactions
+ * Can fetch with or without walletId - backend may infer wallet from session
  */
 async function transactionsFetcher(
   url: string,
-  walletId: string,
+  walletId: string | null,
   accessToken: string,
   refreshToken: string,
   onTokenUpdate: (accessToken: string, refreshToken: string) => Promise<void>
@@ -70,16 +71,18 @@ export function useWallet() {
 
 /**
  * Hook to fetch wallet transactions using SWR
+ * Can fetch with or without walletId - backend may infer wallet from session
  */
 export function useWalletTransactions(walletId: string | null) {
   const { data: session, update: updateSession } = useSession()
   
+  // Allow fetching even without walletId - backend might infer from session
   const { data, error, isLoading, mutate } = useSWR(
-    session?.accessToken && session?.refreshToken && walletId
-      ? ["wallet-transactions", walletId, session.accessToken, session.refreshToken]
+    session?.accessToken && session?.refreshToken
+      ? ["wallet-transactions", walletId || "default", session.accessToken, session.refreshToken]
       : null,
-    ([, walletId, accessToken, refreshToken]) =>
-      transactionsFetcher("wallet-transactions", walletId, accessToken, refreshToken, async (newAccessToken, newRefreshToken) => {
+    ([, walletIdParam, accessToken, refreshToken]) =>
+      transactionsFetcher("wallet-transactions", walletIdParam === "default" ? null : walletIdParam, accessToken, refreshToken, async (newAccessToken, newRefreshToken) => {
         await updateSession({
           accessToken: newAccessToken,
           refreshToken: newRefreshToken,
