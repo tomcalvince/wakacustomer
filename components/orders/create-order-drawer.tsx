@@ -107,49 +107,53 @@ export function CreateOrderDrawer({ open, onOpenChange }: CreateOrderDrawerProps
       if (!currentSession?.accessToken || !currentSession?.refreshToken) return
 
       setIsLoading(true)
-      try {
-        // Request location permission and get country
-        try {
-          const location = await getUserLocation()
+      
+      // Get location in background (non-blocking)
+      getUserLocation()
+        .then((location) => {
           const country = getCountryFromCoordinates(location.latitude, location.longitude)
           if (country) {
             setCountryCode(country)
           }
-        } catch (locationError) {
+        })
+        .catch((locationError) => {
           console.warn("Failed to get user location:", locationError)
           // Continue with default country
-        }
-
-        // Fetch agent offices
-        const offices = await fetchAgentOffices({
-          accessToken: currentSession.accessToken,
-          refreshToken: currentSession.refreshToken,
-          onTokenUpdate: async (newAccessToken, newRefreshToken) => {
-            await updateSession({
-              accessToken: newAccessToken,
-              refreshToken: newRefreshToken,
-            })
-          },
         })
 
+      try {
+        // Fetch agent offices and delivery windows in parallel for faster loading
+        const [offices, windows] = await Promise.all([
+          fetchAgentOffices({
+            accessToken: currentSession.accessToken,
+            refreshToken: currentSession.refreshToken,
+            onTokenUpdate: async (newAccessToken, newRefreshToken) => {
+              await updateSession({
+                accessToken: newAccessToken,
+                refreshToken: newRefreshToken,
+              })
+            },
+          }),
+          fetchDeliveryWindows({
+            accessToken: currentSession.accessToken,
+            refreshToken: currentSession.refreshToken,
+            onTokenUpdate: async (newAccessToken, newRefreshToken) => {
+              await updateSession({
+                accessToken: newAccessToken,
+                refreshToken: newRefreshToken,
+              })
+            },
+          }),
+        ])
+
+        // Set agent offices
         if (offices.length > 0) {
           setAgentOffices(offices)
           // Preselect first office
           setSelectedOriginOffice(offices[0].id)
         }
 
-        // Fetch delivery windows
-        const windows = await fetchDeliveryWindows({
-          accessToken: currentSession.accessToken,
-          refreshToken: currentSession.refreshToken,
-          onTokenUpdate: async (newAccessToken, newRefreshToken) => {
-            await updateSession({
-              accessToken: newAccessToken,
-              refreshToken: newRefreshToken,
-            })
-          },
-        })
-
+        // Set delivery windows
         const activeWindows = windows.filter((w) => w.is_active)
         setDeliveryWindows(activeWindows)
         // Preselect first active window

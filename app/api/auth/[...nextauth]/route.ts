@@ -73,14 +73,6 @@ export const authOptions: NextAuthOptions = {
             })
           }
 
-          // Check if user is verified and active
-          if (!data.user.is_verified || !data.user.is_active) {
-            if (process.env.NODE_ENV !== "production") {
-              console.log("[nextauth.authorize] blocked due to status", data.user)
-            }
-            return null
-          }
-
           // Check if user is an customer
           if (data.user.user_type !== "customer") {
             if (process.env.NODE_ENV !== "production") {
