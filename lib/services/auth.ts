@@ -77,13 +77,13 @@ export async function login(email: string, password: string): Promise<LoginRespo
     }
 
     // Validate user status
-    if (!data.user.is_verified) {
-      throw new Error("Account not verified. Please verify your email.")
-    }
+    // if (!data.user.is_verified) {
+    //   throw new Error("Account not verified. Please verify your email.")
+    // }
 
-    if (!data.user.is_active) {
-      throw new Error("Account is inactive. Please contact support.")
-    }
+    // if (!data.user.is_active) {
+    //   throw new Error("Account is inactive. Please contact support.")
+    // }
 
     // Check if user is a customer
     if (data.user.user_type !== "customer") {
