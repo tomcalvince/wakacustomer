@@ -6,10 +6,8 @@ import { MagnifyingGlassIcon, MapIcon } from "@heroicons/react/24/outline"
 import { ArchiveBoxIcon } from "@heroicons/react/24/solid"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { NotebookIcon } from "lucide-react"
 import { toast } from "sonner"
 import { CreateOrderDrawer } from "@/components/orders/create-order-drawer"
-import { useSession } from "next-auth/react"
 
 export function TrackingCard() {
   const router = useRouter()
@@ -82,12 +80,7 @@ export function TrackingCard() {
         </div>
 
         {/* Action Buttons */}
-        <div className="grid grid-cols-2 gap-3">
-          {/* Book Package */}
-          <Button variant={"outline"} className="flex items-center gap-2 p-8">
-            <NotebookIcon className="h-6 w-6" />
-            <span className="font-medium ">Handle Package</span>
-          </Button>
+        <div className="flex">
 
           {/* Track Order */}
           <Button
