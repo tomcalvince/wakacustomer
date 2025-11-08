@@ -6,6 +6,7 @@ import { MagnifyingGlassIcon, MapIcon } from "@heroicons/react/24/outline"
 import { ArchiveBoxIcon } from "@heroicons/react/24/solid"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import { ReceiptCentIcon } from "lucide-react"
 import { toast } from "sonner"
 import { CreateOrderDrawer } from "@/components/orders/create-order-drawer"
 
@@ -81,6 +82,11 @@ export function TrackingCard() {
 
         {/* Action Buttons */}
         <div className="flex">
+          {/* Book Package */}
+          <Button variant={"outline"} className="flex items-center gap-2 p-8">
+            <ReceiptCentIcon className="h-6 w-6" />
+            <span className="font-medium ">Check Rates</span>
+          </Button>
 
           {/* Track Order */}
           <Button
