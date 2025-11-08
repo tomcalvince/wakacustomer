@@ -81,7 +81,7 @@ export function TrackingCard() {
         </div>
 
         {/* Action Buttons */}
-        <div className="flex">
+        <div className="grid grid-cols-2 gap-4">
           {/* Book Package */}
           <Button variant={"outline"} className="flex items-center gap-2 p-8">
             <ReceiptCentIcon className="h-6 w-6" />
