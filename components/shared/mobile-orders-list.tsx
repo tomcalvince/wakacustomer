@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils"
 import Link from "next/link"
 import { useOrders } from "@/lib/hooks/use-orders"
 import { OrderDirection, OrderStatus } from "@/types/orders"
+import { fetchOrdersPage } from "@/lib/services/orders"
 import {
   getStatusLabel,
   getStatusBadgeClasses,
@@ -72,8 +73,111 @@ export function MobileOrdersList({
   directionFilter?: OrderDirection
 }) {
   const router = useRouter()
+  const { data: session, update: updateSession } = useSession()
   const [statusFilter, setStatusFilter] = React.useState<OrderStatus>("all")
-  const { orders, isLoading, isError, mutate } = useOrders(directionFilter, statusFilter)
+  const { orders: initialOrders, pagination, isLoading, isError, mutate } = useOrders(directionFilter, statusFilter)
+  
+  // State for infinite scroll
+  const [allOrders, setAllOrders] = React.useState<typeof initialOrders>([])
+  const [nextUrl, setNextUrl] = React.useState<string | null>(null)
+  const [isLoadingMore, setIsLoadingMore] = React.useState(false)
+  const [hasMore, setHasMore] = React.useState(false)
+  const loadMoreRef = React.useRef<HTMLDivElement>(null)
+
+  // Initialize orders and pagination when first page loads
+  React.useEffect(() => {
+    if (initialOrders.length > 0 && allOrders.length === 0) {
+      setAllOrders(initialOrders)
+      setNextUrl(pagination?.next || null)
+      setHasMore(!!pagination?.next)
+    }
+  }, [initialOrders, pagination])
+
+  // Reset orders when filters change
+  React.useEffect(() => {
+    setAllOrders([])
+    setNextUrl(null)
+    setHasMore(false)
+    setIsLoadingMore(false)
+  }, [directionFilter, statusFilter])
+
+  // Update orders when initial orders change (after filter reset)
+  React.useEffect(() => {
+    if (initialOrders.length > 0) {
+      setAllOrders(initialOrders)
+      setNextUrl(pagination?.next || null)
+      setHasMore(!!pagination?.next)
+    } else if (initialOrders.length === 0 && !isLoading) {
+      setAllOrders([])
+      setNextUrl(null)
+      setHasMore(false)
+    }
+  }, [initialOrders, pagination, isLoading])
+
+  // Load more orders when scrolling to bottom
+  const loadMore = React.useCallback(async () => {
+    if (!nextUrl || isLoadingMore || !session?.accessToken || !session?.refreshToken) {
+      return
+    }
+
+    setIsLoadingMore(true)
+    try {
+      const response = await fetchOrdersPage({
+        nextUrl,
+        direction: directionFilter,
+        status: statusFilter,
+        accessToken: session.accessToken,
+        refreshToken: session.refreshToken,
+        onTokenUpdate: async (newAccessToken, newRefreshToken) => {
+          await updateSession({
+            accessToken: newAccessToken,
+            refreshToken: newRefreshToken,
+          })
+        },
+      })
+
+      if (response.results.length > 0) {
+        setAllOrders((prev) => [...prev, ...response.results])
+        setNextUrl(response.next)
+        setHasMore(!!response.next)
+      } else {
+        setHasMore(false)
+      }
+    } catch (error) {
+      console.error("Failed to load more orders:", error)
+      setHasMore(false)
+    } finally {
+      setIsLoadingMore(false)
+    }
+  }, [nextUrl, isLoadingMore, session, directionFilter, statusFilter, updateSession])
+
+  // Intersection Observer for infinite scroll
+  React.useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const target = entries[0]
+        if (target.isIntersecting && hasMore && !isLoadingMore) {
+          loadMore()
+        }
+      },
+      {
+        root: null,
+        rootMargin: "100px", // Start loading 100px before reaching bottom
+        threshold: 0.1,
+      }
+    )
+
+    const currentRef = loadMoreRef.current
+    if (currentRef) {
+      observer.observe(currentRef)
+    }
+
+    return () => {
+      if (currentRef) {
+        observer.unobserve(currentRef)
+      }
+    }
+  }, [hasMore, isLoadingMore, loadMore])
 
   // Handle errors (token refresh failures)
   React.useEffect(() => {
@@ -122,7 +226,7 @@ export function MobileOrdersList({
           <div className="flex items-center justify-center py-12">
             <p className="text-muted-foreground text-sm">Loading orders...</p>
           </div>
-        ) : orders.length === 0 ? (
+        ) : allOrders.length === 0 ? (
           <Empty>
             <EmptyHeader>
               <EmptyMedia variant="icon">
@@ -137,7 +241,8 @@ export function MobileOrdersList({
             </EmptyHeader>
           </Empty>
         ) : (
-          orders.map((order, idx) => {
+          <>
+            {allOrders.map((order, idx) => {
             const isHighlighted = idx === 0 && order.status === "in_transit"
             return (
               <Card
@@ -227,7 +332,16 @@ export function MobileOrdersList({
                 </div>
               </Card>
             )
-          })
+          })}
+            {/* Loading indicator and intersection observer target */}
+            {hasMore && (
+              <div ref={loadMoreRef} className="py-4 text-center">
+                {isLoadingMore && (
+                  <p className="text-muted-foreground text-sm">Loading more orders...</p>
+                )}
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

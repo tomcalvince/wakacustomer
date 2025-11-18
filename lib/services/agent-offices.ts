@@ -1,4 +1,19 @@
 import { INTERNAL_API_URLS } from "@/lib/constants"
+import { parseApiResponse } from "@/lib/utils/parse-api-response"
+
+export interface RouteDestination {
+  id?: string
+  name: string
+  code?: string
+  [key: string]: any
+}
+
+export interface RouteFare {
+  min_fare?: number
+  max_fare?: number
+  current_fare?: number
+  [key: string]: any
+}
 
 export interface AgentOffice {
   id: string
@@ -22,6 +37,14 @@ export interface AgentOffice {
   created_at: string
   updated_at: string
   distance_km?: number
+  // Routes and destinations (may be stringified JSON from API)
+  destinations?: RouteDestination[] | string
+  routes?: any
+  // Fare information (may be stringified JSON or string numbers from API)
+  fares?: RouteFare | string
+  min_fare?: number | string
+  max_fare?: number | string
+  current_fare?: number | string
 }
 
 export interface FetchAgentOfficesParams {
@@ -99,7 +122,52 @@ export async function fetchAgentOffices(
     const responseData: AgentOfficesResponse = await response.json()
 
     // Extract offices array from response
-    const offices = responseData?.offices || []
+    let offices = responseData?.offices || []
+
+    // Parse stringified JSON and convert numeric fields
+    offices = parseApiResponse(offices, [
+      "min_fare",
+      "max_fare",
+      "current_fare",
+      "distance_km",
+    ]) as AgentOffice[]
+
+    // Ensure destinations, fares, and fare fields are properly parsed
+    offices = offices.map((office) => {
+      const parsed: AgentOffice = { ...office }
+
+      // Parse destinations if it's a string
+      if (parsed.destinations && typeof parsed.destinations === "string") {
+        try {
+          parsed.destinations = JSON.parse(parsed.destinations) as RouteDestination[]
+        } catch {
+          // If parsing fails, try to parse as part of the full object
+          parsed.destinations = parseApiResponse(parsed.destinations) as RouteDestination[]
+        }
+      }
+
+      // Parse fares if it's a string
+      if (parsed.fares && typeof parsed.fares === "string") {
+        try {
+          parsed.fares = JSON.parse(parsed.fares) as RouteFare
+        } catch {
+          parsed.fares = parseApiResponse(parsed.fares) as RouteFare
+        }
+      }
+
+      // Ensure fare fields are numbers
+      if (typeof parsed.min_fare === "string") {
+        parsed.min_fare = parseFloat(parsed.min_fare) || undefined
+      }
+      if (typeof parsed.max_fare === "string") {
+        parsed.max_fare = parseFloat(parsed.max_fare) || undefined
+      }
+      if (typeof parsed.current_fare === "string") {
+        parsed.current_fare = parseFloat(parsed.current_fare) || undefined
+      }
+
+      return parsed
+    })
 
     if (process.env.NODE_ENV !== "production") {
       console.log("[agent-offices.fetchAgentOffices] success", { 
@@ -182,7 +250,51 @@ export async function searchAgentOfficesByLocation(
       return []
     }
 
-    const data: AgentOffice[] = await response.json()
+    let data: AgentOffice[] = await response.json()
+
+    // Parse stringified JSON and convert numeric fields
+    data = parseApiResponse(data, [
+      "min_fare",
+      "max_fare",
+      "current_fare",
+      "distance_km",
+    ]) as AgentOffice[]
+
+    // Ensure destinations, fares, and fare fields are properly parsed
+    data = data.map((office) => {
+      const parsed: AgentOffice = { ...office }
+
+      // Parse destinations if it's a string
+      if (parsed.destinations && typeof parsed.destinations === "string") {
+        try {
+          parsed.destinations = JSON.parse(parsed.destinations) as RouteDestination[]
+        } catch {
+          parsed.destinations = parseApiResponse(parsed.destinations) as RouteDestination[]
+        }
+      }
+
+      // Parse fares if it's a string
+      if (parsed.fares && typeof parsed.fares === "string") {
+        try {
+          parsed.fares = JSON.parse(parsed.fares) as RouteFare
+        } catch {
+          parsed.fares = parseApiResponse(parsed.fares) as RouteFare
+        }
+      }
+
+      // Ensure fare fields are numbers
+      if (typeof parsed.min_fare === "string") {
+        parsed.min_fare = parseFloat(parsed.min_fare) || undefined
+      }
+      if (typeof parsed.max_fare === "string") {
+        parsed.max_fare = parseFloat(parsed.max_fare) || undefined
+      }
+      if (typeof parsed.current_fare === "string") {
+        parsed.current_fare = parseFloat(parsed.current_fare) || undefined
+      }
+
+      return parsed
+    })
 
     if (process.env.NODE_ENV !== "production") {
       console.log("[agent-offices.searchAgentOfficesByLocation] success", {
@@ -321,7 +433,47 @@ export async function createAgentOffice(
       throw new Error(errorData.message || errorData.detail || "Failed to create office")
     }
 
-    const data: AgentOffice = await response.json()
+    let data: AgentOffice = await response.json()
+
+    // Parse stringified JSON and convert numeric fields
+    data = parseApiResponse(data, [
+      "min_fare",
+      "max_fare",
+      "current_fare",
+      "distance_km",
+    ]) as AgentOffice
+
+    // Ensure destinations, fares, and fare fields are properly parsed
+    if (data) {
+      // Parse destinations if it's a string
+      if (data.destinations && typeof data.destinations === "string") {
+        try {
+          data.destinations = JSON.parse(data.destinations) as RouteDestination[]
+        } catch {
+          data.destinations = parseApiResponse(data.destinations) as RouteDestination[]
+        }
+      }
+
+      // Parse fares if it's a string
+      if (data.fares && typeof data.fares === "string") {
+        try {
+          data.fares = JSON.parse(data.fares) as RouteFare
+        } catch {
+          data.fares = parseApiResponse(data.fares) as RouteFare
+        }
+      }
+
+      // Ensure fare fields are numbers
+      if (typeof data.min_fare === "string") {
+        data.min_fare = parseFloat(data.min_fare) || undefined
+      }
+      if (typeof data.max_fare === "string") {
+        data.max_fare = parseFloat(data.max_fare) || undefined
+      }
+      if (typeof data.current_fare === "string") {
+        data.current_fare = parseFloat(data.current_fare) || undefined
+      }
+    }
 
     if (process.env.NODE_ENV !== "production") {
       console.log("[agent-offices.createAgentOffice] success", { office_id: data?.id })
@@ -427,7 +579,47 @@ export async function updateAgentOffice(
       throw new Error(errorData.message || errorData.detail || "Failed to update office")
     }
 
-    const data: AgentOffice = await response.json()
+    let data: AgentOffice = await response.json()
+
+    // Parse stringified JSON and convert numeric fields
+    data = parseApiResponse(data, [
+      "min_fare",
+      "max_fare",
+      "current_fare",
+      "distance_km",
+    ]) as AgentOffice
+
+    // Ensure destinations, fares, and fare fields are properly parsed
+    if (data) {
+      // Parse destinations if it's a string
+      if (data.destinations && typeof data.destinations === "string") {
+        try {
+          data.destinations = JSON.parse(data.destinations) as RouteDestination[]
+        } catch {
+          data.destinations = parseApiResponse(data.destinations) as RouteDestination[]
+        }
+      }
+
+      // Parse fares if it's a string
+      if (data.fares && typeof data.fares === "string") {
+        try {
+          data.fares = JSON.parse(data.fares) as RouteFare
+        } catch {
+          data.fares = parseApiResponse(data.fares) as RouteFare
+        }
+      }
+
+      // Ensure fare fields are numbers
+      if (typeof data.min_fare === "string") {
+        data.min_fare = parseFloat(data.min_fare) || undefined
+      }
+      if (typeof data.max_fare === "string") {
+        data.max_fare = parseFloat(data.max_fare) || undefined
+      }
+      if (typeof data.current_fare === "string") {
+        data.current_fare = parseFloat(data.current_fare) || undefined
+      }
+    }
 
     if (process.env.NODE_ENV !== "production") {
       console.log("[agent-offices.updateAgentOffice] success", { office_id: data?.id })

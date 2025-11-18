@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { ArrowLeftIcon, UserIcon } from "@heroicons/react/24/outline"
+import { ArrowLeftIcon, UserIcon, MapPinIcon } from "@heroicons/react/24/outline"
 import { useSession, signOut } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
@@ -41,7 +41,9 @@ import {
 } from "@/lib/services/orders"
 import { formatPhoneNumber } from "@/lib/utils/phone"
 import { getUserLocation, getCountryFromCoordinates } from "@/lib/utils/location"
+import { formatCoordinates } from "@/lib/utils/coordinates"
 import { geocodeLocation, type GeocodeResult } from "@/lib/services/locations"
+import { LocationMapDialog } from "./location-map-dialog"
 
 interface Parcel extends ParcelPayload {
   id: string
@@ -51,6 +53,7 @@ interface Parcel extends ParcelPayload {
   cod: boolean
   amount: string
   size: string
+  estimated_weight: number
   recipientName: string
   recipientPhone: string
   specialNotes: string
@@ -97,6 +100,10 @@ export function CreateOrderDrawer({ open, onOpenChange }: CreateOrderDrawerProps
   const [deliveryGeocodeResults, setDeliveryGeocodeResults] = React.useState<GeocodeResult[]>([])
   const [isSearchingPickup, setIsSearchingPickup] = React.useState(false)
   const [isSearchingDelivery, setIsSearchingDelivery] = React.useState(false)
+  
+  // Map dialog states
+  const [isPickupMapOpen, setIsPickupMapOpen] = React.useState(false)
+  const [isDeliveryMapOpen, setIsDeliveryMapOpen] = React.useState(false)
 
   // Fetch agent offices and delivery windows on mount
   React.useEffect(() => {
@@ -252,21 +259,39 @@ export function CreateOrderDrawer({ open, onOpenChange }: CreateOrderDrawerProps
   }, [deliverySearchQuery, countryCode, session?.accessToken, session?.refreshToken, updateSession])
 
   const handleSelectPickupLocation = (result: GeocodeResult) => {
-    setPickupAddress(result.display_name)
-    // Round to 6 decimal places to match API validation
-    const lat = parseFloat(result.latitude.toFixed(6))
-    const lng = parseFloat(result.longitude.toFixed(6))
-    setPickupCoordinates([lat.toString(), lng.toString()])
+    // Format coordinates: max 9 digits total, max 6 decimal places
+    const formatted = formatCoordinates([result.latitude, result.longitude])
+    setPickupCoordinates([formatted[0].toString(), formatted[1].toString()])
+    setPickupSearchQuery("")
+    setPickupGeocodeResults([])
+    // Open map dialog to allow user to fine-tune the location
+    setIsPickupMapOpen(true)
+  }
+
+  const handleSelectDeliveryLocation = (result: GeocodeResult) => {
+    // Format coordinates: max 9 digits total, max 6 decimal places
+    const formatted = formatCoordinates([result.latitude, result.longitude])
+    setDeliveryCoordinates([formatted[0].toString(), formatted[1].toString()])
+    setDeliverySearchQuery("")
+    setDeliveryGeocodeResults([])
+    // Open map dialog to allow user to fine-tune the location
+    setIsDeliveryMapOpen(true)
+  }
+
+  const handlePickupMapSelect = (address: string, coordinates: [number, number]) => {
+    setPickupAddress(address)
+    // Format coordinates: max 9 digits total, max 6 decimal places
+    const formatted = formatCoordinates(coordinates)
+    setPickupCoordinates([formatted[0].toString(), formatted[1].toString()])
     setPickupSearchQuery("")
     setPickupGeocodeResults([])
   }
 
-  const handleSelectDeliveryLocation = (result: GeocodeResult) => {
-    setDeliveryAddress(result.display_name)
-    // Round to 6 decimal places to match API validation
-    const lat = parseFloat(result.latitude.toFixed(6))
-    const lng = parseFloat(result.longitude.toFixed(6))
-    setDeliveryCoordinates([lat.toString(), lng.toString()])
+  const handleDeliveryMapSelect = (address: string, coordinates: [number, number]) => {
+    setDeliveryAddress(address)
+    // Format coordinates: max 9 digits total, max 6 decimal places
+    const formatted = formatCoordinates(coordinates)
+    setDeliveryCoordinates([formatted[0].toString(), formatted[1].toString()])
     setDeliverySearchQuery("")
     setDeliveryGeocodeResults([])
   }
@@ -277,20 +302,13 @@ export function CreateOrderDrawer({ open, onOpenChange }: CreateOrderDrawerProps
     cod: boolean
     amount: string
     size: string
+    estimated_weight: number
     recipientName: string
     recipientPhone: string
     specialNotes: string
     deliveryDestination: string
     destination_agent_office: string
   }) => {
-    // Calculate estimated_weight from size (rough approximation)
-    const weightMap: Record<string, number> = {
-      small: 0.5,
-      medium: 3,
-      large: 10,
-      xlarge: 20,
-    }
-
     const newParcel: Parcel = {
       id: Date.now().toString(),
       description: parcelData.description,
@@ -299,14 +317,14 @@ export function CreateOrderDrawer({ open, onOpenChange }: CreateOrderDrawerProps
       cod: parcelData.cod,
       amount: parcelData.amount,
       size: parcelData.size,
+      estimated_weight: parcelData.estimated_weight,
       recipientName: parcelData.recipientName,
       recipientPhone: parcelData.recipientPhone,
       specialNotes: parcelData.specialNotes,
       deliveryDestination: parcelData.deliveryDestination,
       destination_agent_office: parcelData.destination_agent_office,
       destination_office_name: parcelData.deliveryDestination,
-      estimated_weight: weightMap[parcelData.size] || 1,
-      declared_value: parseFloat(parcelData.value) || 0,
+      declared_value: parcelData.value ? parseFloat(parcelData.value) : undefined,
       recipient_name: parcelData.recipientName,
       recipient_phone: formatPhoneNumber(parcelData.recipientPhone),
       special_instructions: parcelData.specialNotes || undefined,
@@ -421,18 +439,29 @@ export function CreateOrderDrawer({ open, onOpenChange }: CreateOrderDrawerProps
           size: parcel.size,
           declared_value: parcel.declared_value,
           cod: parcel.cod || false,
-          cod_amount: parcel.cod ? parcel.amount : undefined,
+          cod_amount: parcel.cod ? parseFloat(parcel.amount) || 0 : 0,
         }))
+
+        // Format coordinates: max 9 digits total, max 6 decimal places
+        const pickupCoords: [number, number] = formatCoordinates([
+          parseFloat(pickupCoordinates[0]),
+          parseFloat(pickupCoordinates[1]),
+        ])
+        const deliveryCoords: [number, number] = formatCoordinates([
+          parseFloat(deliveryCoordinates[0]),
+          parseFloat(deliveryCoordinates[1]),
+        ])
 
         try {
           const result = await createDoorToDoorOrder({
             sender: senderName.trim(),
             sender_phone: formattedSenderPhone,
             pickup_address: pickupAddress.trim(),
-            pickup_coordinates: pickupCoordinates as [string, string],
+            pickup_coordinates: pickupCoords,
             delivery_address: deliveryAddress.trim(),
-            delivery_coordinates: deliveryCoordinates as [string, string],
+            delivery_coordinates: deliveryCoords,
             delivery_time: selectedDeliveryWindow,
+            service_level: "standard",
             parcels: parcelPayloads,
             recipient_name: recipientName.trim(),
             recipient_phone: formattedRecipientPhone,
@@ -485,7 +514,8 @@ export function CreateOrderDrawer({ open, onOpenChange }: CreateOrderDrawerProps
             origin_agent_office: selectedOriginOffice,
             sender_name: senderName.trim(),
             sender_phone: formattedSenderPhone,
-            service_option: deliveryType === "dropoff" ? "drop-off" : "express",
+            service_option: "drop-off",
+            service_level: deliveryType === "dropoff" ? "standard" : "express",
             delivery_time: selectedDeliveryWindow,
             parcels: parcelPayloads,
             accessToken: session.accessToken,
@@ -634,34 +664,51 @@ export function CreateOrderDrawer({ open, onOpenChange }: CreateOrderDrawerProps
                   <>
                     <div className="space-y-2">
                       <Label>Pickup Address</Label>
-                      <div className="relative">
-                        <Input
-                          type="text"
-                          placeholder="Search pickup address..."
-                          value={pickupSearchQuery}
-                          onChange={(e) => {
-                            setPickupSearchQuery(e.target.value)
-                            if (!e.target.value) {
-                              setPickupAddress("")
-                              setPickupCoordinates(["", ""])
-                            }
+                      <div className="flex gap-2">
+                        <div className="relative flex-1">
+                          <Input
+                            type="text"
+                            placeholder="Search pickup address..."
+                            value={pickupSearchQuery}
+                            onChange={(e) => {
+                              setPickupSearchQuery(e.target.value)
+                              if (!e.target.value) {
+                                setPickupAddress("")
+                                setPickupCoordinates(["", ""])
+                              }
+                            }}
+                            className="h-12 rounded-xl bg-white border"
+                          />
+                          {pickupGeocodeResults.length > 0 && (
+                            <div className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                              {pickupGeocodeResults.map((result, idx) => (
+                                <button
+                                  key={idx}
+                                  type="button"
+                                  onClick={() => handleSelectPickupLocation(result)}
+                                  className="w-full text-left px-4 py-2 hover:bg-muted text-sm"
+                                >
+                                  {result.display_name}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            const coords: [number, number] | undefined = 
+                              pickupCoordinates[0] && pickupCoordinates[1]
+                                ? [parseFloat(pickupCoordinates[0]), parseFloat(pickupCoordinates[1])]
+                                : undefined
+                            setIsPickupMapOpen(true)
                           }}
-                          className="h-12 rounded-xl bg-white border"
-                        />
-                        {pickupGeocodeResults.length > 0 && (
-                          <div className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                            {pickupGeocodeResults.map((result, idx) => (
-                              <button
-                                key={idx}
-                                type="button"
-                                onClick={() => handleSelectPickupLocation(result)}
-                                className="w-full text-left px-4 py-2 hover:bg-muted text-sm"
-                              >
-                                {result.display_name}
-                              </button>
-                            ))}
-                          </div>
-                        )}
+                          className="h-12 px-4 rounded-xl shrink-0"
+                          title="Select location on map"
+                        >
+                          <MapPinIcon className="h-5 w-5" />
+                        </Button>
                       </div>
                       {pickupAddress && (
                         <p className="text-xs text-muted-foreground">{pickupAddress}</p>
@@ -670,34 +717,51 @@ export function CreateOrderDrawer({ open, onOpenChange }: CreateOrderDrawerProps
 
                     <div className="space-y-2">
                       <Label>Delivery Address</Label>
-                      <div className="relative">
-                        <Input
-                          type="text"
-                          placeholder="Search delivery address..."
-                          value={deliverySearchQuery}
-                          onChange={(e) => {
-                            setDeliverySearchQuery(e.target.value)
-                            if (!e.target.value) {
-                              setDeliveryAddress("")
-                              setDeliveryCoordinates(["", ""])
-                            }
+                      <div className="flex gap-2">
+                        <div className="relative flex-1">
+                          <Input
+                            type="text"
+                            placeholder="Search delivery address..."
+                            value={deliverySearchQuery}
+                            onChange={(e) => {
+                              setDeliverySearchQuery(e.target.value)
+                              if (!e.target.value) {
+                                setDeliveryAddress("")
+                                setDeliveryCoordinates(["", ""])
+                              }
+                            }}
+                            className="h-12 rounded-xl bg-white border"
+                          />
+                          {deliveryGeocodeResults.length > 0 && (
+                            <div className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                              {deliveryGeocodeResults.map((result, idx) => (
+                                <button
+                                  key={idx}
+                                  type="button"
+                                  onClick={() => handleSelectDeliveryLocation(result)}
+                                  className="w-full text-left px-4 py-2 hover:bg-muted text-sm"
+                                >
+                                  {result.display_name}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            const coords: [number, number] | undefined = 
+                              deliveryCoordinates[0] && deliveryCoordinates[1]
+                                ? [parseFloat(deliveryCoordinates[0]), parseFloat(deliveryCoordinates[1])]
+                                : undefined
+                            setIsDeliveryMapOpen(true)
                           }}
-                          className="h-12 rounded-xl bg-white border"
-                        />
-                        {deliveryGeocodeResults.length > 0 && (
-                          <div className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                            {deliveryGeocodeResults.map((result, idx) => (
-                              <button
-                                key={idx}
-                                type="button"
-                                onClick={() => handleSelectDeliveryLocation(result)}
-                                className="w-full text-left px-4 py-2 hover:bg-muted text-sm"
-                              >
-                                {result.display_name}
-                              </button>
-                            ))}
-                          </div>
-                        )}
+                          className="h-12 px-4 rounded-xl shrink-0"
+                          title="Select location on map"
+                        >
+                          <MapPinIcon className="h-5 w-5" />
+                        </Button>
                       </div>
                       {deliveryAddress && (
                         <p className="text-xs text-muted-foreground">{deliveryAddress}</p>
@@ -837,7 +901,7 @@ export function CreateOrderDrawer({ open, onOpenChange }: CreateOrderDrawerProps
                   <Button
                     type="button"
                     onClick={() => setIsParcelDialogOpen(true)}
-                    className="w-full h-12 rounded-xl bg-foreground text-background font-medium"
+                    className="w-full h-12 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-medium"
                   >
                     {parcels.length > 0 ? "Add Another Parcel" : "Add Parcel"}
                   </Button>
@@ -849,7 +913,7 @@ export function CreateOrderDrawer({ open, onOpenChange }: CreateOrderDrawerProps
                     type="button"
                     onClick={handleSubmit}
                     disabled={isSubmitting}
-                    className="w-full h-12 rounded-xl bg-foreground text-background font-medium"
+                    className="w-full h-12 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-medium"
                   >
                     {isSubmitting ? "Creating Order..." : "Create Order"}
                   </Button>
@@ -874,6 +938,50 @@ export function CreateOrderDrawer({ open, onOpenChange }: CreateOrderDrawerProps
           })
         }}
         isDoorToDoor={deliveryType === "door-to-door"}
+      />
+
+      {/* Pickup Location Map Dialog */}
+      <LocationMapDialog
+        open={isPickupMapOpen}
+        onOpenChange={setIsPickupMapOpen}
+        onLocationSelect={handlePickupMapSelect}
+        initialCoordinates={
+          pickupCoordinates[0] && pickupCoordinates[1]
+            ? [parseFloat(pickupCoordinates[0]), parseFloat(pickupCoordinates[1])]
+            : undefined
+        }
+        title="Select Pickup Location"
+        country={countryCode}
+        accessToken={session?.accessToken || ""}
+        refreshToken={session?.refreshToken || ""}
+        onTokenUpdate={async (newAccessToken, newRefreshToken) => {
+          await updateSession({
+            accessToken: newAccessToken,
+            refreshToken: newRefreshToken,
+          })
+        }}
+      />
+
+      {/* Delivery Location Map Dialog */}
+      <LocationMapDialog
+        open={isDeliveryMapOpen}
+        onOpenChange={setIsDeliveryMapOpen}
+        onLocationSelect={handleDeliveryMapSelect}
+        initialCoordinates={
+          deliveryCoordinates[0] && deliveryCoordinates[1]
+            ? [parseFloat(deliveryCoordinates[0]), parseFloat(deliveryCoordinates[1])]
+            : undefined
+        }
+        title="Select Delivery Location"
+        country={countryCode}
+        accessToken={session?.accessToken || ""}
+        refreshToken={session?.refreshToken || ""}
+        onTokenUpdate={async (newAccessToken, newRefreshToken) => {
+          await updateSession({
+            accessToken: newAccessToken,
+            refreshToken: newRefreshToken,
+          })
+        }}
       />
 
       {/* Confirmation Dialog */}
@@ -1010,7 +1118,7 @@ export function CreateOrderDrawer({ open, onOpenChange }: CreateOrderDrawerProps
             <Button
               onClick={handleConfirmSubmit}
               disabled={isSubmitting}
-              className="bg-foreground text-background"
+              className="bg-orange-500 hover:bg-orange-600 text-white"
             >
               {isSubmitting ? "Creating..." : "Confirm & Create Order"}
             </Button>

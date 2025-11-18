@@ -9,6 +9,7 @@ import {
   BellIcon,
   UserCircleIcon,
   MapPinIcon,
+  CalculatorIcon,
 } from "@heroicons/react/24/outline"
 
 import { NavMain } from "@/components/nav-main"
@@ -68,6 +69,11 @@ const data = {
       title: "Track",
       url: "/track",
       icon: MapPinIcon,
+    },
+    {
+      title: "Check Rates",
+      url: "/rates",
+      icon: CalculatorIcon,
     },
   ],
   

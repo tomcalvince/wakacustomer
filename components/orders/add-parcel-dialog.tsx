@@ -26,6 +26,7 @@ interface AddParcelDialogProps {
     cod: boolean
     amount: string
     size: string
+    estimated_weight: number
     recipientName: string
     recipientPhone: string
     specialNotes: string
@@ -40,10 +41,9 @@ interface AddParcelDialogProps {
 }
 
 const SIZES = [
-  { value: "small", label: "Small", weight: "< 1 kg" },
-  { value: "medium", label: "Medium", weight: "1 - 5 kg" },
-  { value: "large", label: "Large", weight: "5 - 15 kg" },
-  { value: "xlarge", label: "X-Large", weight: "> 15 kg" },
+  { value: "small", label: "Small", weight: "<10 KG", min: 0, max: 9.99 },
+  { value: "medium", label: "Medium", weight: "10 - 25 KG", min: 10, max: 25 },
+  { value: "large", label: "Large", weight: ">25 KG", min: 25.01, max: Infinity },
 ]
 
 export function AddParcelDialog({
@@ -61,6 +61,8 @@ export function AddParcelDialog({
   const [cod, setCod] = React.useState(false)
   const [amount, setAmount] = React.useState("")
   const [selectedSize, setSelectedSize] = React.useState<string>("")
+  const [estimatedWeight, setEstimatedWeight] = React.useState<string>("")
+  const [weightError, setWeightError] = React.useState<string>("")
   const [recipientName, setRecipientName] = React.useState("")
   const [recipientPhone, setRecipientPhone] = React.useState("")
   const [specialNotes, setSpecialNotes] = React.useState("")
@@ -69,6 +71,12 @@ export function AddParcelDialog({
   const [selectedDestinationOffice, setSelectedDestinationOffice] = React.useState<string>("")
   const [isSearching, setIsSearching] = React.useState(false)
   const searchTimeoutRef = React.useRef<NodeJS.Timeout | null>(null)
+
+  // Clear weight when size changes
+  React.useEffect(() => {
+    setEstimatedWeight("")
+    setWeightError("")
+  }, [selectedSize])
 
   // Debounced search for destination offices
   React.useEffect(() => {
@@ -116,9 +124,65 @@ export function AddParcelDialog({
     }
   }, [deliveryLocationSearch, countryCode, accessToken, refreshToken, onTokenUpdate])
 
+  const validateWeight = (weightStr: string, size: string): { valid: boolean; error: string; value: number | null } => {
+    if (!weightStr.trim()) {
+      return { valid: false, error: "Weight is required", value: null }
+    }
+
+    const weight = parseFloat(weightStr)
+    if (isNaN(weight) || weight <= 0) {
+      return { valid: false, error: "Weight must be a positive number", value: null }
+    }
+
+    const sizeConfig = SIZES.find((s) => s.value === size)
+    if (!sizeConfig) {
+      return { valid: false, error: "Please select a size first", value: null }
+    }
+
+    if (sizeConfig.value === "small") {
+      if (weight >= 10) {
+        return { valid: false, error: "Small parcels must be less than 10 KG", value: null }
+      }
+    } else if (sizeConfig.value === "medium") {
+      if (weight < 10 || weight > 25) {
+        return { valid: false, error: "Medium parcels must be between 10 and 25 KG", value: null }
+      }
+    } else if (sizeConfig.value === "large") {
+      if (weight <= 25) {
+        return { valid: false, error: "Large parcels must be greater than 25 KG", value: null }
+      }
+    }
+
+    return { valid: true, error: "", value: weight }
+  }
+
+  const handleWeightChange = (value: string) => {
+    setEstimatedWeight(value)
+    if (selectedSize && value.trim()) {
+      const validation = validateWeight(value, selectedSize)
+      setWeightError(validation.error)
+    } else {
+      setWeightError("")
+    }
+  }
+
   const handleSubmit = () => {
     if (!description || !selectedSize) {
       toast.error("Please fill in all required fields")
+      return
+    }
+
+    // Validate weight
+    if (!estimatedWeight.trim()) {
+      toast.error("Please enter the estimated weight")
+      setWeightError("Weight is required")
+      return
+    }
+
+    const weightValidation = validateWeight(estimatedWeight, selectedSize)
+    if (!weightValidation.valid || weightValidation.value === null) {
+      toast.error(weightValidation.error)
+      setWeightError(weightValidation.error)
       return
     }
 
@@ -146,6 +210,7 @@ export function AddParcelDialog({
         cod,
         amount: cod ? amount : "",
         size: selectedSize,
+        estimated_weight: weightValidation.value,
         recipientName,
         recipientPhone,
         specialNotes,
@@ -160,6 +225,7 @@ export function AddParcelDialog({
         cod,
         amount: cod ? amount : "",
         size: selectedSize,
+        estimated_weight: weightValidation.value,
         recipientName: "",
         recipientPhone: "",
         specialNotes,
@@ -174,6 +240,8 @@ export function AddParcelDialog({
     setCod(false)
     setAmount("")
     setSelectedSize("")
+    setEstimatedWeight("")
+    setWeightError("")
     setRecipientName("")
     setRecipientPhone("")
     setSpecialNotes("")
@@ -190,6 +258,8 @@ export function AddParcelDialog({
     setCod(false)
     setAmount("")
     setSelectedSize("")
+    setEstimatedWeight("")
+    setWeightError("")
     setRecipientName("")
     setRecipientPhone("")
     setSpecialNotes("")
@@ -244,7 +314,7 @@ export function AddParcelDialog({
                 className={cn(
                   "flex-1 h-12 rounded-xl",
                   cod
-                    ? "bg-foreground text-background"
+                    ? "bg-orange-500 hover:bg-orange-600 text-white"
                     : "bg-background border border-border"
                 )}
               >
@@ -256,7 +326,7 @@ export function AddParcelDialog({
                 className={cn(
                   "flex-1 h-12 rounded-xl",
                   !cod
-                    ? "bg-foreground text-background"
+                    ? "bg-orange-500 hover:bg-orange-600 text-white"
                     : "bg-background border border-border"
                 )}
               >
@@ -282,7 +352,7 @@ export function AddParcelDialog({
           {/* Size Selection */}
           <div className="space-y-2">
             <Label>Size</Label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               {SIZES.map((size) => (
                 <Button
                   key={size.value}
@@ -291,7 +361,7 @@ export function AddParcelDialog({
                   className={cn(
                     "h-20 flex flex-col items-center justify-center gap-1 rounded-xl",
                     selectedSize === size.value
-                      ? "bg-foreground text-background"
+                      ? "bg-orange-500 hover:bg-orange-600 text-white"
                       : "bg-background border border-border"
                   )}
                 >
@@ -314,6 +384,39 @@ export function AddParcelDialog({
               ))}
             </div>
           </div>
+
+          {/* Weight Input - Show when size is selected */}
+          {selectedSize && (
+            <div className="space-y-2">
+              <Label htmlFor="estimated_weight">
+                Estimated Weight (KG) *
+                {selectedSize && (
+                  <span className="text-xs text-muted-foreground ml-2">
+                    ({SIZES.find((s) => s.value === selectedSize)?.weight})
+                  </span>
+                )}
+              </Label>
+              <Input
+                id="estimated_weight"
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder={
+                  selectedSize === "small"
+                    ? "Enter weight (0 - 9.99 KG)"
+                    : selectedSize === "medium"
+                    ? "Enter weight (10 - 25 KG)"
+                    : "Enter weight (> 25 KG)"
+                }
+                value={estimatedWeight}
+                onChange={(e) => handleWeightChange(e.target.value)}
+                className={cn("h-12 rounded-xl", weightError && "border-red-500")}
+              />
+              {weightError && (
+                <p className="text-xs text-red-500">{weightError}</p>
+              )}
+            </div>
+          )}
 
           {/* Recipient Name - Only for waka-agent orders */}
           {!isDoorToDoor && (
@@ -484,7 +587,7 @@ export function AddParcelDialog({
             <Button
               onClick={handleSubmit}
               disabled={!isDoorToDoor && !selectedDestinationOffice}
-              className="w-full h-12 rounded-xl bg-green-600 text-background font-medium disabled:opacity-50"
+              className="w-full h-12 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-medium disabled:opacity-50"
             >
               Add Parcel
             </Button>

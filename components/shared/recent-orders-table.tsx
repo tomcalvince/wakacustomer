@@ -33,6 +33,7 @@ import { cn } from "@/lib/utils"
 import Link from "next/link"
 import { useOrders } from "@/lib/hooks/use-orders"
 import { OrderDirection, OrderStatus } from "@/types/orders"
+import { fetchOrdersPage } from "@/lib/services/orders"
 import {
   getStatusLabel,
   getStatusColor,
@@ -57,9 +58,160 @@ const ORDER_STATUSES: OrderStatus[] = [
 
 export function RecentOrdersTable() {
   const router = useRouter()
+  const { data: session, update: updateSession } = useSession()
   const [directionFilter, setDirectionFilter] = React.useState<OrderDirection>("all")
   const [statusFilter, setStatusFilter] = React.useState<OrderStatus>("all")
-  const { orders, isLoading, isError, mutate } = useOrders(directionFilter, statusFilter)
+  const { orders: initialOrders, pagination, isLoading, isError, mutate } = useOrders(directionFilter, statusFilter)
+  
+  // State for infinite scroll
+  const [allOrders, setAllOrders] = React.useState<typeof initialOrders>([])
+  const [nextUrl, setNextUrl] = React.useState<string | null>(null)
+  const [isLoadingMore, setIsLoadingMore] = React.useState(false)
+  const [hasMore, setHasMore] = React.useState(false)
+  const loadMoreRefDesktop = React.useRef<HTMLDivElement>(null)
+  const loadMoreRefMobile = React.useRef<HTMLDivElement>(null)
+
+  // Track previous filter values and initial orders to detect changes
+  const prevFiltersRef = React.useRef<{ direction: OrderDirection; status: OrderStatus }>({
+    direction: directionFilter,
+    status: statusFilter,
+  })
+  const prevInitialOrdersRef = React.useRef<typeof initialOrders>([])
+  const hasOrdersRef = React.useRef(false)
+
+  // Reset and update orders when filters or initial data changes
+  React.useEffect(() => {
+    const filtersChanged =
+      prevFiltersRef.current.direction !== directionFilter ||
+      prevFiltersRef.current.status !== statusFilter
+
+    // Check if initial orders actually changed (by comparing first order ID)
+    const ordersChanged =
+      initialOrders.length !== prevInitialOrdersRef.current.length ||
+      (initialOrders.length > 0 &&
+        prevInitialOrdersRef.current.length > 0 &&
+        initialOrders[0]?.id !== prevInitialOrdersRef.current[0]?.id)
+
+    if (filtersChanged) {
+      // Reset when filters change
+      setAllOrders([])
+      setNextUrl(null)
+      setHasMore(false)
+      setIsLoadingMore(false)
+      prevFiltersRef.current = { direction: directionFilter, status: statusFilter }
+      prevInitialOrdersRef.current = []
+      hasOrdersRef.current = false
+    }
+
+    // Update orders when initial data is available and changed (after reset or initial load)
+    if (initialOrders.length > 0 && (filtersChanged || ordersChanged)) {
+      setAllOrders(initialOrders)
+      setNextUrl(pagination?.next || null)
+      setHasMore(!!pagination?.next)
+      prevInitialOrdersRef.current = initialOrders
+      hasOrdersRef.current = true
+    } else if (initialOrders.length === 0 && !isLoading && hasOrdersRef.current) {
+      // Clear orders if no results and not loading
+      setAllOrders([])
+      setNextUrl(null)
+      setHasMore(false)
+      prevInitialOrdersRef.current = []
+      hasOrdersRef.current = false
+    }
+  }, [initialOrders, pagination?.next, isLoading, directionFilter, statusFilter])
+
+  // Load more orders when scrolling to bottom
+  const loadMore = React.useCallback(async () => {
+    if (!nextUrl || isLoadingMore || !session?.accessToken || !session?.refreshToken) {
+      return
+    }
+
+    setIsLoadingMore(true)
+    try {
+      const response = await fetchOrdersPage({
+        nextUrl,
+        direction: directionFilter,
+        status: statusFilter,
+        accessToken: session.accessToken,
+        refreshToken: session.refreshToken,
+        onTokenUpdate: async (newAccessToken, newRefreshToken) => {
+          await updateSession({
+            accessToken: newAccessToken,
+            refreshToken: newRefreshToken,
+          })
+        },
+      })
+
+      if (response.results.length > 0) {
+        setAllOrders((prev) => [...prev, ...response.results])
+        setNextUrl(response.next)
+        setHasMore(!!response.next)
+      } else {
+        setHasMore(false)
+      }
+    } catch (error) {
+      console.error("Failed to load more orders:", error)
+      setHasMore(false)
+    } finally {
+      setIsLoadingMore(false)
+    }
+  }, [nextUrl, isLoadingMore, session, directionFilter, statusFilter, updateSession])
+
+  // Intersection Observer for infinite scroll - desktop
+  React.useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const target = entries[0]
+        if (target.isIntersecting && hasMore && !isLoadingMore) {
+          loadMore()
+        }
+      },
+      {
+        root: null,
+        rootMargin: "100px", // Start loading 100px before reaching bottom
+        threshold: 0.1,
+      }
+    )
+
+    const currentRef = loadMoreRefDesktop.current
+    if (currentRef) {
+      observer.observe(currentRef)
+    }
+
+    return () => {
+      if (currentRef) {
+        observer.unobserve(currentRef)
+      }
+    }
+  }, [hasMore, isLoadingMore, loadMore])
+
+  // Intersection Observer for infinite scroll - mobile
+  React.useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const target = entries[0]
+        if (target.isIntersecting && hasMore && !isLoadingMore) {
+          loadMore()
+        }
+      },
+      {
+        root: null,
+        rootMargin: "100px", // Start loading 100px before reaching bottom
+        threshold: 0.1,
+      }
+    )
+
+    const currentRef = loadMoreRefMobile.current
+    if (currentRef) {
+      observer.observe(currentRef)
+    }
+
+    return () => {
+      if (currentRef) {
+        observer.unobserve(currentRef)
+      }
+    }
+  }, [hasMore, isLoadingMore, loadMore])
 
   // Handle errors (token refresh failures)
   React.useEffect(() => {
@@ -137,7 +289,7 @@ export function RecentOrdersTable() {
             <div className="flex items-center justify-center py-12">
               <p className="text-muted-foreground">Loading orders...</p>
             </div>
-          ) : orders.length === 0 ? (
+          ) : allOrders.length === 0 ? (
             <Empty>
               <EmptyHeader>
                 <EmptyMedia variant="icon">
@@ -163,7 +315,7 @@ export function RecentOrdersTable() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {orders.map((order) => (
+                {allOrders.map((order) => (
                   <TableRow key={order.id}>
                     <TableCell className="font-medium">{order.order_number}</TableCell>
                     <TableCell>{order.sender_name}</TableCell>
@@ -185,6 +337,17 @@ export function RecentOrdersTable() {
                     </TableCell>
                   </TableRow>
                 ))}
+                {/* Loading indicator and intersection observer target */}
+                {hasMore && (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-4">
+                      <div ref={loadMoreRefDesktop} className="h-4" />
+                      {isLoadingMore && (
+                        <p className="text-muted-foreground text-sm">Loading more orders...</p>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           )}
@@ -206,7 +369,7 @@ export function RecentOrdersTable() {
               <div className="flex items-center justify-center py-12">
                 <p className="text-muted-foreground text-sm">Loading orders...</p>
               </div>
-            ) : orders.length === 0 ? (
+            ) : allOrders.length === 0 ? (
               <Empty>
                 <EmptyHeader>
                   <EmptyMedia variant="icon">
@@ -222,7 +385,7 @@ export function RecentOrdersTable() {
               </Empty>
             ) : (
               <div className="space-y-3">
-                {orders.map((order) => (
+                {allOrders.map((order) => (
                   <Link
                     key={order.id}
                     href={`/orders/${order.id}`}
@@ -255,6 +418,14 @@ export function RecentOrdersTable() {
                     </Badge>
                   </Link>
                 ))}
+                {/* Loading indicator and intersection observer target */}
+                {hasMore && (
+                  <div ref={loadMoreRefMobile} className="py-4 text-center">
+                    {isLoadingMore && (
+                      <p className="text-muted-foreground text-sm">Loading more orders...</p>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>

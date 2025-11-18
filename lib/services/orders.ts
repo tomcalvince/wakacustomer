@@ -16,30 +16,52 @@ export interface FetchOrdersParams {
   onTokenUpdate: (accessToken: string, refreshToken: string) => Promise<void>
 }
 
+export interface PaginatedOrdersResponse {
+  count: number
+  next: string | null
+  previous: string | null
+  results: Order[]
+}
+
+export interface FetchOrdersPageParams {
+  nextUrl?: string | null
+  direction?: OrderDirection
+  status?: OrderStatus
+  accessToken: string
+  refreshToken: string
+  onTokenUpdate: (accessToken: string, refreshToken: string) => Promise<void>
+}
+
 /**
- * Fetches orders from the API with optional filtering
- * @param params - Parameters including tokens, optional filters, and token update callback
- * @returns Array of orders or empty array on error
+ * Fetches a page of orders from the API with optional filtering
+ * @param params - Parameters including optional nextUrl, tokens, optional filters, and token update callback
+ * @returns PaginatedOrdersResponse with orders and pagination metadata
  */
-export async function fetchOrders(params: FetchOrdersParams): Promise<Order[]> {
-  const { accessToken, refreshToken, direction, status, onTokenUpdate } = params
+export async function fetchOrdersPage(
+  params: FetchOrdersPageParams
+): Promise<PaginatedOrdersResponse> {
+  const { nextUrl, accessToken, refreshToken, direction, status, onTokenUpdate } = params
 
-  // Build query parameters
-  const queryParams = new URLSearchParams()
-  if (direction && direction !== "all") {
-    queryParams.append("direction", direction)
+  let url: string
+  if (nextUrl) {
+    // Use the next URL directly (it should be a full URL or relative path)
+    url = nextUrl.startsWith("http") ? nextUrl : `${INTERNAL_API_URLS.ORDERS}${nextUrl}`
+  } else {
+    // Build query parameters
+    const queryParams = new URLSearchParams()
+    if (direction && direction !== "all") {
+      queryParams.append("direction", direction)
+    }
+    if (status && status !== "all") {
+      queryParams.append("status", status)
+    }
+    url = `${INTERNAL_API_URLS.ORDERS}${queryParams.toString() ? `?${queryParams.toString()}` : ""}`
   }
-  if (status && status !== "all") {
-    queryParams.append("status", status)
-  }
-
-  const url = `${INTERNAL_API_URLS.ORDERS}${queryParams.toString() ? `?${queryParams.toString()}` : ""}`
 
   try {
-
     if (process.env.NODE_ENV !== "production") {
-      console.log("[orders.fetchOrders] GET", url)
-      console.log("[orders.fetchOrders] filters", { direction, status })
+      console.log("[orders.fetchOrdersPage] GET", url)
+      console.log("[orders.fetchOrdersPage] filters", { direction, status, nextUrl: !!nextUrl })
     }
 
     const response = await fetch(url, {
@@ -50,7 +72,7 @@ export async function fetchOrders(params: FetchOrdersParams): Promise<Order[]> {
     })
 
     if (process.env.NODE_ENV !== "production") {
-      console.log("[orders.fetchOrders] status", response.status)
+      console.log("[orders.fetchOrdersPage] status", response.status)
     }
 
     if (!response.ok) {
@@ -65,7 +87,7 @@ export async function fetchOrders(params: FetchOrdersParams): Promise<Order[]> {
         }
       } catch (parseError) {
         if (process.env.NODE_ENV !== "production") {
-          console.error("[orders.fetchOrders] failed to parse error response", parseError)
+          console.error("[orders.fetchOrdersPage] failed to parse error response", parseError)
         }
         try {
           errorText = await response.text()
@@ -75,42 +97,53 @@ export async function fetchOrders(params: FetchOrdersParams): Promise<Order[]> {
       }
 
       if (process.env.NODE_ENV !== "production") {
-        // Build log data with guaranteed fields
         const logData: any = {
           url: url || "unknown",
           status: response?.status ?? "unknown",
           statusText: response?.statusText ?? "unknown",
         }
         
-        // Only add errorData if it has content
         if (errorData && typeof errorData === "object" && Object.keys(errorData).length > 0) {
           logData.errorData = errorData
         }
         
-        // Only add errorText if it exists and has content
         if (errorText && typeof errorText === "string" && errorText.trim().length > 0) {
-          logData.errorText = errorText.substring(0, 500) // Limit length
+          logData.errorText = errorText.substring(0, 500)
         }
         
-        // Always log - logData will have at minimum url, status, and statusText
-        console.error("[orders.fetchOrders] error", logData)
+        console.error("[orders.fetchOrdersPage] error", logData)
       }
 
-      // Return empty array on error instead of throwing
-      return []
+      // Return empty paginated response on error
+      return {
+        count: 0,
+        next: null,
+        previous: null,
+        results: [],
+      }
     }
 
-    const data: Order[] = await response.json()
+    const data: PaginatedOrdersResponse = await response.json()
 
     if (process.env.NODE_ENV !== "production") {
-      console.log("[orders.fetchOrders] success", { count: data?.length ?? 0 })
+      console.log("[orders.fetchOrdersPage] success", {
+        count: data?.count ?? 0,
+        resultsCount: data?.results?.length ?? 0,
+        hasNext: !!data?.next,
+        hasPrevious: !!data?.previous,
+      })
     }
 
-    return data || []
+    return {
+      count: data?.count ?? 0,
+      next: data?.next ?? null,
+      previous: data?.previous ?? null,
+      results: data?.results || [],
+    }
   } catch (error: any) {
     if (process.env.NODE_ENV !== "production") {
       const errorInfo: any = {
-        url: `${INTERNAL_API_URLS.ORDERS}${queryParams.toString() ? `?${queryParams.toString()}` : ""}`,
+        url,
         message: error?.message || "Unknown error",
         name: error?.name || "Error",
       }
@@ -127,15 +160,31 @@ export async function fetchOrders(params: FetchOrdersParams): Promise<Order[]> {
         errorInfo.stack = error.stack
       }
       
-      console.error("[orders.fetchOrders] exception", errorInfo)
+      console.error("[orders.fetchOrdersPage] exception", errorInfo)
     }
     // If error is about token refresh failure, re-throw to trigger logout
     if (error instanceof Error && error.message.includes("Token refresh failed")) {
       throw error
     }
-    // Return empty array on other errors
-    return []
+    // Return empty paginated response on other errors
+    return {
+      count: 0,
+      next: null,
+      previous: null,
+      results: [],
+    }
   }
+}
+
+/**
+ * Fetches orders from the API with optional filtering
+ * @param params - Parameters including tokens, optional filters, and token update callback
+ * @returns Array of orders or empty array on error
+ * @deprecated Use fetchOrdersPage for pagination support
+ */
+export async function fetchOrders(params: FetchOrdersParams): Promise<Order[]> {
+  const paginatedResponse = await fetchOrdersPage(params)
+  return paginatedResponse.results
 }
 
 export interface FetchOrderDetailsParams {
@@ -583,7 +632,7 @@ export interface ParcelPayload {
   parcel_name: string
   estimated_weight: number
   size: string
-  declared_value: number
+  declared_value?: number
   recipient_name: string
   recipient_phone: string
   destination_agent_office: string
@@ -594,7 +643,8 @@ export interface CreateMultiRecipientOrderParams {
   origin_agent_office: string
   sender_name: string
   sender_phone: string
-  service_option: "drop-off" | "express"
+  service_option: "drop-off"
+  service_level: "standard" | "express"
   delivery_time: string
   parcels: ParcelPayload[]
   accessToken: string
@@ -605,48 +655,8 @@ export interface CreateMultiRecipientOrderParams {
 export interface CreateMultiRecipientOrderResponse {
   id: string
   order_number: string
-  tracking_number: string
-  status: string
-  payment_status: string
-  payment_method: string | null
-  paid_at: string | null
-  service_type: string
-  service_option: string
-  delivery_time: string
-  total_weight: string
-  total_value: string
-  base_fee: string
-  distance_fee: string
-  weight_fee: string
-  service_fee: string
   total_fee: string
-  sender_name: string
-  sender_phone: string
-  pickup_latitude: string
-  pickup_longitude: string
-  pickup_location: string
-  pickup_address: string
-  pickup_country: string
-  delivery_latitude: string
-  delivery_longitude: string
-  delivery_location: string
-  delivery_address: string
-  delivery_country: string
-  route_distance_meters: number
-  route_duration_seconds: number
-  route_polyline: string
-  created_at: string
-  scheduled_delivery: string | null
-  picked_up_at: string | null
-  delivered_at: string | null
-  special_instructions: string
-  requires_signature: boolean
-  requires_id_verification: boolean
-  customer: string
-  agent: string
-  rider: string | null
-  origin_agent_office: string
-  destination_agent_office: string | null
+  payment_status: string
 }
 
 /**
@@ -663,6 +673,7 @@ export async function createMultiRecipientOrder(
     sender_name,
     sender_phone,
     service_option,
+    service_level,
     delivery_time,
     parcels,
     accessToken,
@@ -671,14 +682,14 @@ export async function createMultiRecipientOrder(
   } = params
 
   try {
-    const url = INTERNAL_API_URLS.ORDERS
+    const url = INTERNAL_API_URLS.WAKA_ORDERS
 
     const payload = {
       origin_agent_office,
       sender_name,
       sender_phone,
-      service_type: "waka-agent",
       service_option,
+      service_level,
       delivery_time,
       parcels,
     }
@@ -690,6 +701,7 @@ export async function createMultiRecipientOrder(
         sender_name,
         sender_phone,
         service_option,
+        service_level,
         delivery_time,
         parcels_count: parcels.length,
       })
@@ -871,19 +883,20 @@ export interface DoorToDoorParcelPayload {
   parcel_name: string
   estimated_weight: number
   size: string
-  declared_value: number
+  declared_value?: number
   cod?: boolean
-  cod_amount?: string
+  cod_amount?: number
 }
 
 export interface CreateDoorToDoorOrderParams {
   sender: string
   sender_phone: string
   pickup_address: string
-  pickup_coordinates: [string, string]
+  pickup_coordinates: [number, number]
   delivery_address: string
-  delivery_coordinates: [string, string]
+  delivery_coordinates: [number, number]
   delivery_time: string
+  service_level: "standard"
   parcels: DoorToDoorParcelPayload[]
   recipient_name: string
   recipient_phone: string
@@ -896,10 +909,8 @@ export interface CreateDoorToDoorOrderParams {
 export interface CreateDoorToDoorOrderResponse {
   id: string
   order_number: string
-  tracking_number: string
-  status: string
+  total_fee: string
   payment_status: string
-  [key: string]: any
 }
 
 /**
@@ -939,6 +950,7 @@ export async function createDoorToDoorOrder(
       delivery_address,
       delivery_coordinates,
       delivery_time,
+      service_level: "standard",
       parcels,
       recipient_name,
       recipient_phone,

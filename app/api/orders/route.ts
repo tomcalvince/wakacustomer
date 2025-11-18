@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ detail: "Unauthorized" }, { status: 401 })
     }
 
-    const url = new URL(`${BASE_URL}${API_URLS.CUSTOMER_ORDERS}`)
+    const url = new URL(`${BASE_URL}${API_URLS.ORDERS}`)
     req.nextUrl.searchParams.forEach((value, key) => {
       url.searchParams.append(key, value)
     })
@@ -96,7 +96,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const url = `${BASE_URL}${API_URLS.MULTIRECIPIENT_ORDERS}`
+    const url = `${BASE_URL}${API_URLS.WAKA_ORDERS}`
 
     // Log request payload
     console.log("[api/orders] POST Request:", {

@@ -126,7 +126,7 @@ export function MobileWallet() {
   // Map transactions to UI format - use default currency if wallet not available
   const txns = React.useMemo(() => {
     if (!Array.isArray(transactions)) return []
-    const currency = wallet?.currency || "KES"
+    const currency = wallet?.currency || "UGX"
     return transactions.map((t) => mapTransactionToTxn(t, currency))
   }, [wallet, transactions])
 
@@ -176,9 +176,9 @@ export function MobileWallet() {
             ) : walletError ? (
               <span className="text-lg opacity-80">Unable to load balance</span>
             ) : isBalanceVisible ? (
-              currency(parseFloat(wallet?.balance ?? "0"), wallet?.currency || "KES")
+              currency(parseFloat(wallet?.balance ?? "0"), wallet?.currency || "UGX")
             ) : (
-              <span className="blur-sm select-none">{wallet?.currency || "KES"} ••••••</span>
+              <span className="blur-sm select-none">{wallet?.currency || "UGX"} ••••••</span>
             )}
           </div>
           <div className="mt-4 grid grid-cols-2 gap-3">
@@ -242,7 +242,7 @@ export function MobileWallet() {
                   <span>
                     {currency(
                       items.reduce((acc, t) => acc + t.amount, 0),
-                      wallet?.currency || "KES"
+                      wallet?.currency || "UGX"
                     )}
                   </span>
                 </div>
@@ -267,7 +267,7 @@ export function MobileWallet() {
                         <p className="text-xs text-muted-foreground truncate">{t.subtitle}</p>
                       </div>
                       <div className={cn("text-sm font-semibold", t.amount >= 0 ? "text-emerald-600" : "text-rose-600")}>{
-                        (t.amount >= 0 ? "+" : "") + currency(t.amount, t.currency || wallet?.currency || "KES")
+                        (t.amount >= 0 ? "+" : "") + currency(t.amount, t.currency || wallet?.currency || "UGX")
                       }</div>
                     </Card>
                   ))}
@@ -282,7 +282,7 @@ export function MobileWallet() {
         onOpenChange={setOpen}
         action={action}
         balance={parseFloat(wallet?.balance ?? "0")}
-        currency={wallet?.currency || "KES"}
+        currency={wallet?.currency || "UGX"}
         onConfirm={(amt) => {
           // no-op submission placeholder; wire to API later
           setOpen(false)

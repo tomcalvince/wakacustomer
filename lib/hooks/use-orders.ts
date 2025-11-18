@@ -1,10 +1,10 @@
 import useSWR from "swr"
 import { useSession } from "next-auth/react"
-import { fetchOrders } from "@/lib/services/orders"
+import { fetchOrders, fetchOrdersPage, type PaginatedOrdersResponse } from "@/lib/services/orders"
 import type { Order, OrderDirection, OrderStatus } from "@/types/orders"
 
 /**
- * SWR fetcher function for orders
+ * SWR fetcher function for orders (first page)
  */
 async function ordersFetcher(
   url: string,
@@ -13,8 +13,8 @@ async function ordersFetcher(
   accessToken: string,
   refreshToken: string,
   onTokenUpdate: (accessToken: string, refreshToken: string) => Promise<void>
-): Promise<Order[]> {
-  return fetchOrders({
+): Promise<PaginatedOrdersResponse> {
+  return fetchOrdersPage({
     direction,
     status,
     accessToken,
@@ -24,7 +24,7 @@ async function ordersFetcher(
 }
 
 /**
- * Hook to fetch orders using SWR
+ * Hook to fetch orders using SWR with pagination support
  */
 export function useOrders(direction: OrderDirection = "all", status: OrderStatus = "all") {
   const { data: session, update: updateSession } = useSession()
@@ -47,7 +47,12 @@ export function useOrders(direction: OrderDirection = "all", status: OrderStatus
   )
 
   return {
-    orders: data || [],
+    orders: data?.results || [],
+    pagination: data ? {
+      count: data.count,
+      next: data.next,
+      previous: data.previous,
+    } : null,
     isLoading,
     isError: error,
     mutate,

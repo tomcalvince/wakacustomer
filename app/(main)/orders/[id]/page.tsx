@@ -49,12 +49,12 @@ function formatDate(dateStr: string | null) {
 
 function formatCurrency(amount: string) {
   try {
-    return new Intl.NumberFormat("en-KE", {
+    return new Intl.NumberFormat("en-UG", {
       style: "currency",
-      currency: "KES",
+      currency: "UGX",
     }).format(parseFloat(amount))
   } catch {
-    return `KES ${amount}`
+    return `UGX ${amount}`
   }
 }
 

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { ReceiptCentIcon } from "lucide-react"
 import { toast } from "sonner"
 import { CreateOrderDrawer } from "@/components/orders/create-order-drawer"
+import Link from "next/link"
 
 export function TrackingCard() {
   const router = useRouter()
@@ -82,15 +83,17 @@ export function TrackingCard() {
 
         {/* Action Buttons */}
         <div className="grid grid-cols-2 gap-4">
-          {/* Book Package */}
-          <Button variant={"outline"} className="flex items-center gap-2 p-8">
-            <ReceiptCentIcon className="h-6 w-6" />
-            <span className="font-medium ">Check Rates</span>
-          </Button>
+          {/* Check Rates */}
+          <Link href="/rates" className="w-full">
+            <Button variant={"outline"} className="flex items-center gap-2 p-8 w-full">
+              <ReceiptCentIcon className="h-6 w-6" />
+              <span className="font-medium ">Check Rates</span>
+            </Button>
+          </Link>
 
-          {/* Track Order */}
+          {/* New Order */}
           <Button
-            className="flex items-center gap-2 p-8"
+            className="flex items-center gap-2 p-8 bg-orange-500 hover:bg-orange-600 text-white"
             onClick={() => setIsCreateOrderOpen(true)}
           >
             <ArchiveBoxIcon className="h-6 w-6" />

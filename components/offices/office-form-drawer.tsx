@@ -19,6 +19,8 @@ import {
   createAgentOffice,
   updateAgentOffice,
   type AgentOffice,
+  type RouteDestination,
+  type RouteFare,
 } from "@/lib/services/agent-offices"
 import { geocodeLocation, type GeocodeResult } from "@/lib/services/locations"
 import { formatPhoneNumber } from "@/lib/utils/phone"
@@ -67,6 +69,10 @@ export function OfficeFormDrawer({
   const [openingHours, setOpeningHours] = React.useState<{
     [key: string]: string
   }>({})
+  const [destinations, setDestinations] = React.useState<RouteDestination[]>([])
+  const [minFare, setMinFare] = React.useState<string>("")
+  const [maxFare, setMaxFare] = React.useState<string>("")
+  const [currentFare, setCurrentFare] = React.useState<string>("")
   const [isSubmitting, setIsSubmitting] = React.useState(false)
   const [isLoadingLocation, setIsLoadingLocation] = React.useState(false)
   const [locationSearch, setLocationSearch] = React.useState("")
@@ -94,6 +100,45 @@ export function OfficeFormDrawer({
         setPhone(office.phone || "")
         setEmail(office.email || "")
         setOpeningHours(office.opening_hours || {})
+        // Handle destinations - ensure it's an array
+        if (office.destinations) {
+          if (Array.isArray(office.destinations)) {
+            setDestinations(office.destinations)
+          } else if (typeof office.destinations === "string") {
+            try {
+              const parsed = JSON.parse(office.destinations)
+              setDestinations(Array.isArray(parsed) ? parsed : [])
+            } catch {
+              setDestinations([])
+            }
+          } else {
+            setDestinations([])
+          }
+        } else {
+          setDestinations([])
+        }
+        // Handle fare fields - ensure they're numbers converted to strings for input
+        setMinFare(
+          office.min_fare !== undefined && office.min_fare !== null
+            ? String(office.min_fare)
+            : office.fares && typeof office.fares === "object" && office.fares.min_fare !== undefined
+            ? String(office.fares.min_fare)
+            : ""
+        )
+        setMaxFare(
+          office.max_fare !== undefined && office.max_fare !== null
+            ? String(office.max_fare)
+            : office.fares && typeof office.fares === "object" && office.fares.max_fare !== undefined
+            ? String(office.fares.max_fare)
+            : ""
+        )
+        setCurrentFare(
+          office.current_fare !== undefined && office.current_fare !== null
+            ? String(office.current_fare)
+            : office.fares && typeof office.fares === "object" && office.fares.current_fare !== undefined
+            ? String(office.fares.current_fare)
+            : ""
+        )
         // Set map center if we have coordinates
         if (lat !== 0 && lng !== 0) {
           setMapCenter([lat, lng])
@@ -120,6 +165,10 @@ export function OfficeFormDrawer({
           saturday: "09:00-14:00",
           sunday: "closed",
         })
+        setDestinations([])
+        setMinFare("")
+        setMaxFare("")
+        setCurrentFare("")
         setShowMap(false)
         setSelectedGeocodeResult(null)
 
@@ -657,6 +706,76 @@ export function OfficeFormDrawer({
                   />
                 </div>
               ))}
+            </div>
+          </div>
+
+          {/* Destinations */}
+          <div className="space-y-2">
+            <Label htmlFor="destinations">Destinations (JSON array)</Label>
+            <Textarea
+              id="destinations"
+              placeholder='e.g., [{"name": "Nairobi", "code": "NBO"}]'
+              value={JSON.stringify(destinations, null, 2)}
+              onChange={(e) => {
+                try {
+                  const parsed = JSON.parse(e.target.value)
+                  setDestinations(Array.isArray(parsed) ? parsed : [])
+                } catch {
+                  // Invalid JSON, but allow typing
+                  // Will be validated on submit
+                }
+              }}
+              className="min-h-[100px] rounded-xl resize-none font-mono text-sm"
+              disabled={isSubmitting}
+            />
+            <p className="text-xs text-muted-foreground">
+              Enter destinations as a JSON array. Each destination should have at least a "name" field.
+            </p>
+          </div>
+
+          {/* Fares */}
+          <div className="space-y-3">
+            <Label>Fares</Label>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="min_fare">Min Fare</Label>
+                <Input
+                  id="min_fare"
+                  type="number"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={minFare}
+                  onChange={(e) => setMinFare(e.target.value)}
+                  className="h-12 rounded-xl"
+                  disabled={isSubmitting}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="max_fare">Max Fare</Label>
+                <Input
+                  id="max_fare"
+                  type="number"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={maxFare}
+                  onChange={(e) => setMaxFare(e.target.value)}
+                  className="h-12 rounded-xl"
+                  disabled={isSubmitting}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="current_fare">Current Fare</Label>
+                <Input
+                  id="current_fare"
+                  type="number"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={currentFare}
+                  onChange={(e) => setCurrentFare(e.target.value)}
+                  className="h-12 rounded-xl"
+                  disabled={isSubmitting}
+                />
+              </div>
             </div>
           </div>
 

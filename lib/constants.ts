@@ -10,18 +10,22 @@ export const API_URLS = {
   REFRESH_TOKEN: "/auth/refresh",
   ME: "/me",
   PROFILE_IMAGE: "/profile/image",
-  CUSTOMER_ORDERS: "/customers/orders",
-  ORDER_DETAILS: "/customers/orders",
+  CUSTOMER_ORDERS: "/orders",
+  ORDERS: "/orders",
+  ORDER_DETAILS: "/orders",
   ORDER_TRACKING: "/orders/track",
   NAVIGATION_DIRECTIONS: "/navigation/directions",
   WALLETS: "/customers/wallet",
   WALLET_TRANSACTIONS: "/customers/wallet/transactions",
   MULTIRECIPIENT_ORDERS: "/orders/multi-recipient",
+  WAKA_ORDERS: "/orders/waka",
   AGENT_OFFICES: "/agent-offices",
   AGENT_OFFICES_NEARBY: "/agent-offices/nearby-by-location",
   DELIVERY_WINDOWS: "/delivery-windows",
   MARK_ORDER_AS_PAID: "/orders", // Base path, order_id appended in service
   GEOCODE: "/locations/geocode",
+  REVERSE_GEOCODE: "/locations/reverse-geocode",
+  PRICING_CALCULATE: "/pricing/calculate",
 } as const
 
 /**
@@ -35,13 +39,16 @@ export const INTERNAL_API_URLS = {
   PROFILE_IMAGE: "/api/profile/image",
   ORDERS: "/api/orders",
   ORDERS_TRACKING: "/api/orders/tracking",
+  WAKA_ORDERS: "/api/orders/waka",
   WALLET: "/api/wallet",
   WALLET_TRANSACTIONS: "/api/wallet/transactions",
   AGENT_OFFICES: "/api/agent-offices",
   AGENT_OFFICES_NEARBY: "/api/agent-offices/nearby-by-location",
   GEOCODE: "/api/locations/geocode",
+  REVERSE_GEOCODE: "/api/locations/reverse-geocode",
   NAVIGATION_DIRECTIONS: "/api/navigation/directions",
   DELIVERY_WINDOWS: "/api/delivery-windows",
+  PRICING_CALCULATE: "/api/pricing/calculate",
 } as const
 
 /**

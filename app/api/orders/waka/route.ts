@@ -4,6 +4,9 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 import { BASE_URL, API_URLS } from "@/lib/constants"
 import { fetchWithTimeout } from "@/lib/utils/fetch-with-timeout"
 
+// Increase route handler timeout to 60 seconds
+export const maxDuration = 60
+
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -12,10 +15,10 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const url = `${BASE_URL}${API_URLS.ORDERS}/door-to-door`
+    const url = `${BASE_URL}${API_URLS.WAKA_ORDERS}`
 
     // Log request payload
-    console.log("[api/orders/door-to-door] POST Request:", {
+    console.log("[api/orders/waka] POST Request:", {
       url,
       payload: body,
     })
@@ -30,7 +33,7 @@ export async function POST(req: NextRequest) {
         },
         body: JSON.stringify(body),
       },
-      30000
+      60000 // 60 second timeout
     )
 
     const responseBody = await response.text()
@@ -39,13 +42,13 @@ export async function POST(req: NextRequest) {
     // Log response
     try {
       const responseData = contentType.includes("application/json") ? JSON.parse(responseBody) : responseBody
-      console.log("[api/orders/door-to-door] POST Response:", {
+      console.log("[api/orders/waka] POST Response:", {
         status: response.status,
         statusText: response.statusText,
         data: responseData,
       })
     } catch (e) {
-      console.log("[api/orders/door-to-door] POST Response:", {
+      console.log("[api/orders/waka] POST Response:", {
         status: response.status,
         statusText: response.statusText,
         body: responseBody.substring(0, 500),
@@ -59,9 +62,30 @@ export async function POST(req: NextRequest) {
       },
     })
   } catch (error) {
-    console.error("[api/orders/door-to-door] error", error)
-    const message = error instanceof Error ? error.message : "Upstream request failed"
-    return NextResponse.json({ detail: message }, { status: 502 })
+    console.error("[api/orders/waka] POST error", error)
+    
+    // Handle specific error types
+    let message = "Upstream request failed"
+    let status = 502
+    
+    if (error instanceof Error) {
+      // Check for timeout errors
+      if (
+        error.message.includes("ETIMEDOUT") ||
+        error.message.includes("timeout") ||
+        (error.cause && typeof error.cause === "object" && "code" in error.cause && error.cause.code === "ETIMEDOUT")
+      ) {
+        message = "ETIMEDOUT"
+        status = 504 // Gateway Timeout
+      } else if (error.message.includes("ECONNREFUSED") || error.message.includes("ENOTFOUND")) {
+        message = "Unable to connect to the server"
+        status = 503 // Service Unavailable
+      } else {
+        message = error.message
+      }
+    }
+    
+    return NextResponse.json({ detail: message }, { status })
   }
 }
 
